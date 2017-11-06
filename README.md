@@ -10,10 +10,10 @@ Title of Project:
 Mapping Community Need for Mental Health Services
 
 Purpose: 
-This projects aims to measure the need for mental health services by region, and provide a visualization insight to whether certain communities are underserved. This is potentially useful for nonprofits, and healthcare professionals working in this space. Further, by overlaying this information with other demographic data of the region, this may be useful for research into demographic factors that may be linked to mental health need, stigma and service provision.
+This projects aims to measure the need for mental health services by region, and provide a visualization insight to whether certain communities are underserved. This is potentially useful for nonprofits, and healthcare professionals working in this space. Further, by overlaying this information with other demographic data of the region, this may be useful for research into demographic factors that may be linked to mental health need, stigma and service provision. Lastly, we will construct a logistic regression model to predict suicide rate.
 
 Data: 
-This project requires us to be able to map out demand and supply of mental health services. 
+We will need to map out demand and supply of mental health services. 
 
 -Demand
 Due to the stigma surrounding mental illnesses, we believe that many people turn to Google search rather than trained professionals to self-diagnose when facing mental health struggles. Due to the sensitive nature of this topic, it is difficult to assess how many people in a given region face mental health concerns and what the most pressing mental health problems are for different regions, through means like survey and poll. As such, Google Searches may be a powerful source of information to map demand. We will find the data for Google searches about mental health issues using Google Trends data, accessed using gtrendsR package. We hope to gather search information for different different cities in the state of California and work with geographical data in shapefiles. We will also look for other data sources that attempt to map mental health need. 
@@ -40,7 +40,8 @@ https://www.nhgis.org/
 https://www.ipums.org/ 
 California poverty count, at various levels of aggregation, 2013-2015
 http://www.ppic.org/data-set/california-poverty-by-county-and-legislative-district/ 
-Suicide rate
+
+-Suicide rate
 Leading causes of death, including suicide, by zipcode in CA
 https://data.chhs.ca.gov/dataset/leading-causes-of-death-by-zip-code-1999-2013
 
