@@ -24,15 +24,18 @@ require(ggmap)
 This gives us a master dataframe of search frequencies of “depression” over the past 12 months in the US which relate for sure to mental health. We can take different dataframes using "$": see the dataframe for details.
 
 ```{r}
-trend<-gtrends("rehab",c("US"),time="today 12-m",category=437)
-trend
+trend<-gtrends("suicide",c("US"),time="today 12-m")
+trend$interest_by_region
 ```
 
 For example, this gives us search frequencies by cities in CA in the U.S.
 
 ```{r}
-cities_dep<-gtrends("depression",c("US-CA"),time="today 12-m",category=437)$interest_by_city
-cities_dep
+cities_longlat<-read.csv("cal_cities.csv",header=TRUE) %>% select(c(location,Latitude,Longitude))
+cities_dep<-gtrends("depression",c("US-CA"),time="today 12-m")$interest_by_city
+cities_dep<-cities_dep %>% inner_join(cities_longlat,by="location")
+
+write.csv(cities_dep,file="cities_top49.csv")
 ```
 
 This plots cities_dep.
@@ -55,5 +58,10 @@ mappy<-get_map(c(-119.4179,36.7783),zoom=6,scale=2,maptype = "terrain",source="g
 p=ggmap(mappy,extent="device",ylab="Latitude",xlab="Longitude")
 p=p+geom_point(data=cities_dep,aes(x=lat,y=lon),size=(cities_dep$hits/50)^2)
 p
+```
+
+```{r}
+suis<-read.csv(file="death.csv",header=TRUE)
+suis %>% filter(Causes.of.Death=="SUI") %>% filter(Year==2010)
 ```
 
