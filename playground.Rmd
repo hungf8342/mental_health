@@ -57,3 +57,19 @@ p=p+geom_point(data=cities_dep,aes(x=lat,y=lon),size=(cities_dep$hits/50)^2)
 p
 ```
 
+facilities data
+```{r}
+facilities <- read_csv("filtered_licensed-healthcare-facility-listing-june-30-2017.csv")
+facilities <- filter(facilities, LICENSE_CATEGORY_DESC == "Acute Psychiatric Hospital"|LICENSE_CATEGORY_DESC == "Psychiatric Health Facility" | LICENSE_CATEGORY_DESC =="Psychology Clinic")
+View(facilities)
+```
+
+suicide rate data
+```{r}
+suicide_rate <- read_csv("leading-causes-of-death-by-zip-code-1999-2015.csv")
+colnames(suicide_rate) <- c("year", "zipcode", "causes_of_death", "count") 
+suicide_rate <- filter(suicide_rate, year == "2015" & causes_of_death == "SUI")
+View(suicide_rate)
+```
+
+
