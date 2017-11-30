@@ -60,8 +60,19 @@ p=p+geom_point(data=cities_dep,aes(x=lat,y=lon),size=(cities_dep$hits/50)^2)
 p
 ```
 
+
 ```{r}
 suis<-read.csv(file="death.csv",header=TRUE)
 suis %>% filter(Causes.of.Death=="SUI") %>% filter(Year==2010)
 ```
+
+
+facilities data
+```{r}
+facilities <- read_csv("filtered_licensed-healthcare-facility-listing-june-30-2017.csv")
+facilities <- filter(facilities, LICENSE_CATEGORY_DESC == "Acute Psychiatric Hospital"|LICENSE_CATEGORY_DESC == "Psychiatric Health Facility" | LICENSE_CATEGORY_DESC =="Psychology Clinic")
+View(facilities)
+write.csv(facilities, file="facilities.csv")
+```
+
 
