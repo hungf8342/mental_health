@@ -22,6 +22,7 @@ require(gtrendsR)
 require(ggplot2)
 require(dplyr)
 require(ggmap)
+require(zipcode)
 ```
 
 ## Making Dataframes
