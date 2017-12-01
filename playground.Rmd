@@ -24,7 +24,7 @@ require(ggmap)
 This gives us a master dataframe of search frequencies of “depression” over the past 12 months in the US which relate for sure to mental health. We can take different dataframes using "$": see the dataframe for details.
 
 ```{r}
-trend<-gtrends("suicide",c("US"),time="today 12-m")
+trend<-gtrends("suicide",c("US"),time="today+5-y")
 trend$interest_by_region
 ```
 
@@ -43,6 +43,7 @@ This plots cities_dep.
 ```{r}
 ggplot(cities_dep,aes(x=reorder(location,hits),y=hits))+geom_bar(stat="identity")+theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
+
 ```{r}
 
 for (i in 1:length(cities_dep$location)) {
@@ -50,6 +51,9 @@ for (i in 1:length(cities_dep$location)) {
   cities_dep$lat[i]=as.numeric(place[1])
   cities_dep$lon[i]=as.numeric(place[2])
 }
+cities_dep$keyword<-NULL
+cities_dep$geo<-NULL
+cities_dep$gprop<-NULL
 ```
 
 ```{r}
@@ -62,10 +66,45 @@ p
 
 
 ```{r}
-suis<-read.csv(file="death.csv",header=TRUE)
-suis %>% filter(Causes.of.Death=="SUI") %>% filter(Year==2010)
+suis<-read.csv(file="death.csv",header=TRUE) %>% filter(Causes.of.Death=="SUI") #%>% filter(Year >= 2010)
+colnames(suis)[2]<-"zip"
+suis$zip<-as.character(suis$zip)
+city_suis<-inner_join(zipcode,suis,by="zip") 
+city_suis<-city_suis %>% group_by(city) %>% summarise(suicides=sum(Count))
+colnames(city_suis)[1]<-"location"
 ```
 
+```{r}
+citydem<-read.csv("citydems.csv",header=TRUE)
+citydem2<-read.csv("citydems2.csv",header=TRUE)
+citydem2$Name<-gsub(",.*","",citydem2$Name)
+citydem$Name<-gsub(",.*","",citydem$Name)
+citydem$FIPS<-NULL
+citydem2$FIPS<-NULL
+colnames(citydem)<-c("location", "male", "female","healthcare","bluecollar","whitecollar","nonfamily","medAge","AmInd", "whiteNonHisp","hisp","white","black","asian","medIncome","lessHS","HS","Bachelors","pop","unmarriedMpop","unemployed")
+colnames(citydem2)<-c("location","healthcarepp","activities","socialRec","entertainment","pov","presdrugs","healthcarebiz")
+logtable<-inner_join(citydem,cities_dep,by="location") %>% inner_join(city_suis,by="location") %>% inner_join(citydem2,by="location") %>% mutate(suicides=suicides*10000/pop,healthcarepp=healthcarepp/pop,activities=activities/pop,socialRec=socialRec/pop,entertainment=entertainment/pop,presdrugs=presdrugs/pop,healthcarebiz=healthcarebiz*1000/pop)
+#logtable$hiRate<- ifelse(logtable$suicides>median(logtable$suicides),1,0)
+logtable_crop<-logtable[,-c(1,23,24)]
+```
+
+```{r}
+set.seed(1)
+model<-lm(log(suicides)~.,data=logtable_crop)
+summary(model)
+```
+Variables significant in this regression are poverty rate (+), density of healthcare businesses(+), and black/Asian population percentwise (-) in the city. Variables which also should be considered according to this regression are percentage of white-collar workers (-), searches of "depression" (+), median income (+), hispanice population (-), and white non-Hispanic population (-). 
+```{r}
+ggplot(logtable_crop,aes(x=asian,y=log(suicides)))+geom_point()
+```
+
+
+```{r}
+library(caret)
+modelrf<-train(suicides~.,method="rf",tuneGrid=data.frame(mtry=c(2,3,4,5,6)),data=logtable_crop)
+modelrf$finalModel
+
+```
 
 facilities data
 ```{r}
@@ -73,6 +112,10 @@ facilities <- read_csv("filtered_licensed-healthcare-facility-listing-june-30-20
 facilities <- filter(facilities, LICENSE_CATEGORY_DESC == "Acute Psychiatric Hospital"|LICENSE_CATEGORY_DESC == "Psychiatric Health Facility" | LICENSE_CATEGORY_DESC =="Psychology Clinic")
 View(facilities)
 write.csv(facilities, file="facilities.csv")
+# more facilities
+facilities.2 <- read_csv("facilities.csv")
+View(facilities.2)
+write.csv(facilities.2, file = "facilities_2.csv")
 ```
 
 
