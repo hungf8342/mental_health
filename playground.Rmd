@@ -49,7 +49,7 @@ cities_dep<-cities_dep %>% inner_join(cities_longlat,by="location")
 write.csv(cities_dep,file="cities_top49.csv")
 
 # updated gtrends data
-# I used the one with top 50, instead of the one including cities with low search volume.
+# I used the one with top 50, instead of the one including cities with low search volume . Though I actually think it is better to use the latter so as to increase our sample size + the effects of low search volume is more smoothed out since we are taking gtrends data over 12 years. 
 gtrends <- read_csv("~/math154/ma154-project5-teammentalhealth/gtrends_20042015_top50.csv")  %>%inner_join(cities_longlat,by="location")
 
 ```
