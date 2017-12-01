@@ -21,6 +21,8 @@ According to the CDC, suicide was the 10th leading cause of death in the US in 2
 require(gtrendsR)
 require(ggplot2)
 require(dplyr)
+require(zipcode)
+data("zipcode")
 require(ggmap)
 ```
 
@@ -51,22 +53,23 @@ ggplot(cities_dep,aes(x=reorder(location,hits),y=hits))+geom_bar(stat="identity"
 
 ```{r}
 
-for (i in 1:length(cities_dep$location)) {
-  place=geocode(cities_dep$location[i],output="latlon",source="dsk")
-  cities_dep$lat[i]=as.numeric(place[1])
-  cities_dep$lon[i]=as.numeric(place[2])
-}
+# for (i in 1:length(cities_dep$location)) {
+#   place=geocode(cities_dep$location[i],output="latlon",source="dsk")
+#   cities_dep$lat[i]=as.numeric(place[1])
+#   cities_dep$lon[i]=as.numeric(place[2])
+#   print(place)
+# }
 cities_dep$keyword<-NULL
 cities_dep$geo<-NULL
 cities_dep$gprop<-NULL
 ```
 
 ```{r}
-center=as.numeric(geocode("United States",source="dsk"))
-mappy<-get_map(c(-119.4179,36.7783),zoom=6,scale=2,maptype = "terrain",source="google")
-p=ggmap(mappy,extent="device",ylab="Latitude",xlab="Longitude")
-p=p+geom_point(data=cities_dep,aes(x=lat,y=lon),size=(cities_dep$hits/50)^2)
-p
+# center=as.numeric(geocode("United States",source="dsk"))
+# mappy<-get_map(c(-119.4179,36.7783),zoom=6,scale=2,maptype = "terrain",source="google")
+# p=ggmap(mappy,extent="device",ylab="Latitude",xlab="Longitude")
+# p=p+geom_point(data=cities_dep,aes(x=lat,y=lon),size=(cities_dep$hits/50)^2)
+# p
 ```
 
 
@@ -113,14 +116,14 @@ modelrf$finalModel
 
 facilities data
 ```{r}
-facilities <- read_csv("filtered_licensed-healthcare-facility-listing-june-30-2017.csv")
-facilities <- filter(facilities, LICENSE_CATEGORY_DESC == "Acute Psychiatric Hospital"|LICENSE_CATEGORY_DESC == "Psychiatric Health Facility" | LICENSE_CATEGORY_DESC =="Psychology Clinic")
-View(facilities)
-write.csv(facilities, file="facilities.csv")
-# more facilities
-facilities.2 <- read_csv("facilities.csv")
-View(facilities.2)
-write.csv(facilities.2, file = "facilities_2.csv")
+# facilities <- read.csv("filtered_licensed-healthcare-facility-listing-june-30-2017.csv")
+# facilities <- filter(facilities, LICENSE_CATEGORY_DESC == "Acute Psychiatric Hospital"|LICENSE_CATEGORY_DESC == "Psychiatric Health Facility" | LICENSE_CATEGORY_DESC =="Psychology Clinic")
+# View(facilities)
+# write.csv(facilities, file="facilities.csv")
+# # more facilities
+# facilities.2 <- read_csv("facilities.csv")
+# View(facilities.2)
+# write.csv(facilities.2, file = "facilities_2.csv")
 ```
 
 
