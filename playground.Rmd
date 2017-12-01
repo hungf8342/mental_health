@@ -31,7 +31,7 @@ require(ggmap)
 This gives us a master dataframe of search frequencies of “depression” over the past 12 months in the US which relate for sure to mental health. We can take different dataframes using "$": see the dataframe for details.
 
 ```{r}
-trend<-gtrends("suicide",c("US"),time="today+5-y")
+trend<-gtrends("suicide",c("US"),time="all")
 trend$interest_by_region
 ```
 
@@ -39,7 +39,7 @@ For example, this gives us search frequencies by cities in CA in the U.S.
 
 ```{r}
 cities_longlat<-read.csv("cal_cities.csv",header=TRUE) %>% select(c(location,Latitude,Longitude))
-cities_dep<-gtrends("depression",c("US-CA"),time="today 12-m")$interest_by_city
+cities_dep<-gtrends("depression",c("US-CA"),time="all")$interest_by_city
 cities_dep<-cities_dep %>% inner_join(cities_longlat,by="location")
 
 write.csv(cities_dep,file="cities_top49.csv")
@@ -74,7 +74,7 @@ cities_dep$gprop<-NULL
 
 
 ```{r}
-suis<-read.csv(file="death.csv",header=TRUE) %>% filter(Causes.of.Death=="SUI") #%>% filter(Year >= 2010)
+suis<-read.csv(file="death.csv",header=TRUE) %>% filter(Causes.of.Death=="SUI") %>% filter(Year >= 2004)
 colnames(suis)[2]<-"zip"
 suis$zip<-as.character(suis$zip)
 city_suis<-inner_join(zipcode,suis,by="zip") 
@@ -91,19 +91,19 @@ citydem$FIPS<-NULL
 citydem2$FIPS<-NULL
 colnames(citydem)<-c("location", "male", "female","healthcare","bluecollar","whitecollar","nonfamily","medAge","AmInd", "whiteNonHisp","hisp","white","black","asian","medIncome","lessHS","HS","Bachelors","pop","unmarriedMpop","unemployed")
 colnames(citydem2)<-c("location","healthcarepp","activities","socialRec","entertainment","pov","presdrugs","healthcarebiz")
-logtable<-inner_join(citydem,cities_dep,by="location") %>% inner_join(city_suis,by="location") %>% inner_join(citydem2,by="location") %>% mutate(suicides=suicides*10000/pop,healthcarepp=healthcarepp/pop,activities=activities/pop,socialRec=socialRec/pop,entertainment=entertainment/pop,presdrugs=presdrugs/pop,healthcarebiz=healthcarebiz*1000/pop)
+logtable<-inner_join(citydem,cities_dep,by="location") %>% inner_join(city_suis,by="location") %>% inner_join(citydem2,by="location") %>% mutate(suicides=suicides*100000/pop,healthcarepp=healthcarepp/pop,activities=activities/pop,socialRec=socialRec/pop,entertainment=entertainment/pop,presdrugs=presdrugs/pop,healthcarebiz=healthcarebiz*1000/pop)
 #logtable$hiRate<- ifelse(logtable$suicides>median(logtable$suicides),1,0)
 logtable_crop<-logtable[,-c(1,23,24)]
 ```
 
 ```{r}
-set.seed(1)
-model<-lm(log(suicides)~.,data=logtable_crop)
+set.seed(47)
+model<-lm((suicides)~.,data=logtable_crop)
 summary(model)
 ```
 Variables significant in this regression are poverty rate (+), density of healthcare businesses(+), and black/Asian population percentwise (-) in the city. Variables which also should be considered according to this regression are percentage of white-collar workers (-), searches of "depression" (+), median income (+), hispanice population (-), and white non-Hispanic population (-). 
 ```{r}
-ggplot(logtable_crop,aes(x=asian,y=log(suicides)))+geom_point()
+ggplot(logtable_crop,aes(x=hits,y=log(suicides)))+geom_point()
 ```
 
 
