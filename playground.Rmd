@@ -44,29 +44,20 @@ require(ggmap)
 
 ## Making Dataframes
 
-This gives us a master dataframe of search frequencies of “depression” over the past 12 months in the US which relate for sure to mental health. We can take different dataframes using "$": see the dataframe for details.
-
-longitude and latitude of cities
+Longitude and latitude of cities (for mapping them later)
 ```{r}
 cities_longlat<-read.csv("cal_cities.csv",header=TRUE) %>% select(c(location,Latitude,Longitude))
-
-# updated gtrends data
-# I used the one with top 50, instead of the one including cities with low search volume . Though I actually think it is better to use the latter so as to increase our sample size + the effects of low search volume is more smoothed out since we are taking gtrends data over 12 years. 
-
-gtrends <- read.csv("gtrends_20042015_top50.csv")  %>%inner_join(cities_longlat,by="location")
-
-## gtrends only has 49 cities. Stanford (gtrends hit = 99) got lost
 ```
 
-
+Full gtrends data for all cities for depression search
 ```{r}
-# full gtrends data for all cities
 gtrends_full <- read.csv("gtrends_20042015_full.csv") %>%
+  `colnames<-`(c("location", "hits")) %>%
   inner_join(cities_longlat, by="location")
 ```
 
 
-prepping facilities data to find number per city
+Prepping facilities data to find number of facilities per city
 ```{r}
 facilities<-read.csv("facilities_final.csv",header = TRUE)
 colnames(facilities)[7]<-"zip"
@@ -76,7 +67,7 @@ city_facs<-filtered_facs %>% group_by(city) %>% summarise(facility_cnt=n())
 colnames(city_facs)[1]<-"location"
 ```
 
-prepping suicide data to find number per city, 2004-2015
+Prepping suicide data to find number of suicides per city, 2004-2015
 ```{r}
 suis<-read.csv(file="death.csv",header=TRUE) %>% filter(Causes.of.Death=="SUI") %>% filter(Year >= 2004)
 colnames(suis)[2]<-"zip"
@@ -90,13 +81,10 @@ colnames(city_suis)[1]<-"location"
 # p/s also need to ensure that the other dem data (esp. those we are going to plot) exist at the zipcode level 
 zip_suis <- suis2 %>% group_by(zip) %>% summarise(suicides=sum(Count)) 
 gis_suis <-suis2 %>% filter(Year == 2015) %>% select(1:3) %>% left_join(zip_suis,by="zip")
-
-
 ```
 
 Adding in city demographic data for 2017
 ```{r}
-
 citydem<-read.csv("citydems.csv",header=TRUE)
 citydem2<-read.csv("citydems2.csv",header=TRUE)
 citydem2$Name<-gsub(",.*","",citydem2$Name)
@@ -107,33 +95,26 @@ colnames(citydem)<-c("location", "male", "female","healthcare","bluecollar","whi
 citydem<-inner_join(citydem,city_facs,by="location")
 citydem$facility_cnt<-citydem$facility_cnt*100000/citydem$pop
 colnames(citydem2)<-c("location","healthcarepp","activities","socialRec","entertainment","pov","presdrugs","healthcarebiz")
-
-# I joined it with the new gtrends data. Not sure why two cities disappeared (meaning the citydem data is not exhaustive altho it should be...). I arranged it by "suicides", and I think our two cities can be Santa Cruz (high suicide/pop) and Santa Clarita (low suicide/pop). I chose these two cities because they have at least 4 zipcodes. Open to revision. 
-
-## citydem data doesn't have Ventura (gtrends hit=93)
 ```
 
+Append all data frames
 ```{r}
-# explanatory data table using full gtrends data (over 180 cities)
 logtable_full<-inner_join(citydem,gtrends_full,by="location") %>% inner_join(city_suis,by="location") %>% inner_join(citydem2,by="location") %>% mutate(suicides=suicides*100000/pop,healthcarepp=healthcarepp/pop,activities=activities/pop,socialRec=socialRec/pop,entertainment=entertainment/pop,presdrugs=presdrugs/pop,healthcarebiz=healthcarebiz*1000/pop)
 # viewing the data frame reveals that Burbank and Mountain View are repeated 4 times somehow. remove them.
 logtable_full <- logtable_full [-c(11,12, 52,53,10,54, 55, 13,141,154,155), ]
 # now the table has 164 cities, whereas the full list of gtrends had 188. not a big loss
 logtable_full_crop <- logtable_full [,-c(1,24,25)]
-```
-
-```{r}
 # normalize the explanatory variables data frame
 logtable_full_crop_normalized <- scale(logtable_full_crop) %>% data.frame()
 ```
 
-
+Build a logit model to predict suicide rate at the city level
 ```{r}
-# try the model again using full gtrends data
 set.seed(47)
 model_full<-lm((suicides)~.,data=logtable_full_crop_normalized)
 summary(model_full)
 ```
+
 Significant variables include:
 Facility density (#mental health facilities/100,000 people) (+), poverty rate (+), % population black (big -), % population native (+), % population asian(big -), median age (+), % population with up to HS education (-), unemployment rate (-), healthcare spending per person (big -), social/recreation/gym club spending (big -), and prescription drug spending (big +). Other variables to consider would be entertainment (excluding movies and museums) spending (big +), % population not in a family household (-), and % population hispanic (big -).
 
