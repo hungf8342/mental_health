@@ -95,15 +95,6 @@ colnames(city_facs)[1]<-"location"
 
 
 ```{r}
-# center=as.numeric(geocode("United States",source="dsk"))
-# mappy<-get_map(c(-119.4179,36.7783),zoom=6,scale=2,maptype = "terrain",source="google")
-# p=ggmap(mappy,extent="device",ylab="Latitude",xlab="Longitude")
-# p=p+geom_point(data=cities_dep,aes(x=lat,y=lon),size=(cities_dep$hits/50)^2)
-# p
-```
-
-
-```{r}
 suis<-read.csv(file="death.csv",header=TRUE) %>% filter(Causes.of.Death=="SUI") %>% filter(Year >= 2004)
 colnames(suis)[2]<-"zip"
 suis$zip<-as.character(suis$zip)
@@ -142,7 +133,7 @@ colnames(citydem2)<-c("location","healthcarepp","activities","socialRec","entert
 # explanatory data table using full gtrends data (over 180 cities)
 logtable_full<-inner_join(citydem,gtrends_full,by="location") %>% inner_join(city_suis,by="location") %>% inner_join(citydem2,by="location") %>% mutate(suicides=suicides*100000/pop,healthcarepp=healthcarepp/pop,activities=activities/pop,socialRec=socialRec/pop,entertainment=entertainment/pop,presdrugs=presdrugs/pop,healthcarebiz=healthcarebiz*1000/pop)
 # viewing the data frame reveals that Burbank and Mountain View are repeated 4 times somehow. remove them.
-logtable_full <- logtable_full [-c(11, 54, 55, 13,154,155), ]
+logtable_full <- logtable_full [-c(11,12, 54, 55, 13,154,155), ]
 # now the table has 186 cities, whereas the full list of gtrends had 188. not a big loss
 logtable_full_crop <- logtable_full [,-c(1,24,25)]
 ```
@@ -190,8 +181,9 @@ facilities data
 ```
 
 ```{r}
-# rownames(norm_logtable)<-logtable[,1]
-# dist_whole<-dist(norm_logtable) 
+clustering_table<-logtable_full_crop_normalized
+#rownames(clustering_table)<-logtable_full[,1]
+dist_whole<-dist(clustering_table)
 # cluster_whole<-hclust(dist_whole,method="centroid")
 # plot(cluster_whole, labels=logtable[,1])
 # groups=cutree(cluster_whole,k=12)
