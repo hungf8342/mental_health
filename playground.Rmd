@@ -34,21 +34,9 @@ require(ggmap)
 
 This gives us a master dataframe of search frequencies of “depression” over the past 12 months in the US which relate for sure to mental health. We can take different dataframes using "$": see the dataframe for details.
 
-```{r}
-trend<-gtrends("suicide",c("US"),time="all")
-trend$interest_by_region
-```
-
-For example, this gives us search frequencies by cities in CA in the U.S.
-
+longitude and latitude of cities
 ```{r}
 cities_longlat<-read.csv("cal_cities.csv",header=TRUE) %>% select(c(location,Latitude,Longitude))
-cities_dep<-gtrends("depression",c("US-CA"),time="all")$interest_by_city
-cities_dep<-cities_dep %>% inner_join(cities_longlat,by="location")
-
-write.csv(cities_dep,file="cities_top49.csv") 
-
-##only has 48 cities
 
 # updated gtrends data
 # I used the one with top 50, instead of the one including cities with low search volume . Though I actually think it is better to use the latter so as to increase our sample size + the effects of low search volume is more smoothed out since we are taking gtrends data over 12 years. 
@@ -84,6 +72,7 @@ cities_dep$geo<-NULL
 cities_dep$gprop<-NULL
 ```
 
+prepping facilities data to find number per city
 ```{r}
 facilities<-read.csv("filtered_licensed-healthcare-facility-listing-june-30-2017.csv",header = TRUE)
 colnames(facilities)[7]<-"zip"
@@ -93,7 +82,7 @@ city_facs<-filtered_facs %>% group_by(city) %>% summarise(facility_cnt=n())
 colnames(city_facs)[1]<-"location"
 ```
 
-
+prepping suicide data to find number per city, 2004-2015
 ```{r}
 suis<-read.csv(file="death.csv",header=TRUE) %>% filter(Causes.of.Death=="SUI") %>% filter(Year >= 2004)
 colnames(suis)[2]<-"zip"
@@ -111,6 +100,7 @@ gis_suis <-suis2 %>% filter(Year == 2015) %>% select(1:3) %>% left_join(zip_suis
 
 ```
 
+Adding in city demographic data for 2017
 ```{r}
 
 citydem<-read.csv("citydems.csv",header=TRUE)
@@ -144,8 +134,6 @@ logtable_full_crop_normalized <- scale(logtable_full_crop) %>% data.frame()
 ```
 
 
-REVISE-Variables significant in this regression are poverty rate (+), density of healthcare businesses(+), and black/Asian population percentwise (-) in the city. Variables which also should be considered according to this regression are percentage of white-collar workers (-), searches of "depression" (+), median income (+), hispanice population (-), and white non-Hispanic population (-). 
-
 ```{r}
 # try the model again using full gtrends data
 set.seed(47)
@@ -153,51 +141,40 @@ model_full<-lm((suicides)~.,data=logtable_full_crop_normalized)
 summary(model_full)
 ```
 Significant variables include:
+Facility density (#mental health facilities/100,000 people) (+), poverty rate (+), % population black (big -), % population native (+), % population asian(big -), median age (+), % population with up to HS education (-), unemployment rate (-), healthcare spending per person (big -), social/recreation/gym club spending (big -), and prescription drug spending (big +). Other variables to consider would be entertainment (excluding movies and museums) spending (big +), % population not in a family household (-), and % population hispanic (big -).
+
 
 
 ```{r}
 #ggplot(logtable_crop,aes(x=whitecollar,y=log(suicides)))+geom_point()
 ```
 
-
 ```{r}
-# library(caret)
-# modelrf<-train(suicides~.,method="rf",tuneGrid=data.frame(mtry=c(2,3,4,5,6)),data=whole_norm_logtable,importance=TRUE)
-# modelrf$finalModel
-# importance(modelrf$finalModel)
-
-```
-
-facilities data
-```{r}
-# facilities <- read.csv("filtered_licensed-healthcare-facility-listing-june-30-2017.csv")
-# facilities <- filter(facilities, LICENSE_CATEGORY_DESC == "Acute Psychiatric Hospital"|LICENSE_CATEGORY_DESC == "Psychiatric Health Facility" | LICENSE_CATEGORY_DESC =="Psychology Clinic")
-# View(facilities)
-# write.csv(facilities, file="facilities.csv")
-# # more facilities
-# facilities.2 <- read_csv("facilities.csv")
-# View(facilities.2)
-# write.csv(facilities.2, file = "facilities_2.csv")
-```
-
-```{r}
-clustering_table<-logtable_full_crop_normalized
-#rownames(clustering_table)<-logtable_full[,1]
+clustering_table<-logtable_full_crop_normalized %>% select(presdrugs,socialRec,healthcarepp,facility_cnt,asian,AmInd)
+rownames(clustering_table)<-logtable_full[,1]
 dist_whole<-dist(clustering_table)
-# cluster_whole<-hclust(dist_whole,method="centroid")
-# plot(cluster_whole, labels=logtable[,1])
-# groups=cutree(cluster_whole,k=12)
-# groups
-# x<-cbind(norm_logtable, groups)
-# 
-# suis_cluster<-function(clus) {
-#   sd<-logtable %>% filter(location %in% rownames(subset(x,groups==clus))) %>% .[["suicides"]] %>% log() %>% sd()
-#   mean<-logtable %>% filter(location %in% rownames(subset(x,groups==clus))) %>% .[["suicides"]] %>% log() %>% mean()
-#   View(logtable %>% filter(location %in% rownames(subset(x,groups==clus))))
-#   return(c(mean,sd))
-# }
-# suis_cluster(2)
+cluster_whole<-hclust(dist_whole,method="centroid")
+plot(cluster_whole, labels=logtable_full[,1])
+groups=cutree(cluster_whole,k=20)
+groups
+x<-cbind(clustering_table, groups)
+
+suis_cluster<-function(clus) {
+  sd<-logtable_full %>% filter(location %in% (rownames(subset(x,groups==clus)))) %>% .[["suicides"]] %>% log() %>% sd()
+  mean<-logtable_full %>% filter(location %in% (rownames(subset(x,groups==clus)))) %>% .[["suicides"]] %>% log() %>% mean()
+  View(logtable_full%>% filter(location %in% (rownames(subset(x,groups==clus)))))
+  return(c(mean,sd))
+}
+ suis_cluster(5)
 #(lapply(1:12,suis_cluster))
 
+```
+
+```{r}
+set.seed(10)
+kcluster<-kmeans(clustering_table,20, nstart=20)$cluster
+kcluster
+y<-cbind(clustering_table,kcluster)
+logtable_full %>% filter(location %in% (rownames(subset(y,groups==17))))
 ```
 
