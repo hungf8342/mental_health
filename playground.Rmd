@@ -19,14 +19,22 @@ Ultimately, we hope to shed some light on important explanatory variables correl
 - use result/visualization as hook
 
 ## Limitations 
+
 Ideally, the response variable that we are interested in is the gap between the demand and supply of mental health treatment. Which areas are over/under-served, and why? This would be very useful information to policy makers, mental health service providers, related non-profits and such. However, such a variable does not exist (or we could not find it), and we would have had to create an algorithm to derive this data from other existing variables. We could not decide on an accurate way to code "demand" (and what weights to give each component). Furthermore, even though "supply" is more straightforward, there also exists discrepancies between the size of the facilities, or the affordability of the services that would need to be captured by our variable. In the end, we decided that we would use suicide rate as a response variable, although we agreed that it would be an interesting extension to look at service gap. We also hope that our GIS maps would help our audience to begin to think about and identify areas which are under-served. 
 
-## Variable choice (to be moved to preceding corresponding R chunks)
+## Datasets & Variable Choice (to be moved to preceding corresponding R chunks)
 
-We originally intended to look at suicide rate and Google Trends data from one year, eg. 2015, but the logit model returned no significant variables as both suicide rate and depression search fluctuate a lot each year, influenced by factors like celebrity suicides which are not directly relevant to population mental health. Hence, we decided to aggregate suicide rate and Google Trends data over 12 years (constrained by Google Trends data availability), from 2004 to 2015. Since demographic information is fairly stable over time, we used demographic information from the most recent year to train our model.
+The original datasets we start with include: 
+- List of verified mental health treatment clinics and facilities (downloaded from ReferenceUSA). We only included places with a certified psychiatrist or psychologist, and which focuses on general mental health (excluding substance abuse facilities)
+- Google search frequency by city on "depression" as a mood (to exclude unrelated searches on economic depression etc) from 2004-2015 (downloaded from Google Trends). The "hits" values are calculated on a scale from 0 to 100, where 100 is the location with the most popularity as a fraction of total searches, where 50 indicates a location which is half as popular and so on. 
+# Candice/Frances, could either of y'all (whoever dl-ed the data) elaborate on where these data came from, and what they are
+- Number of suicides by city/zipcode from 2004-2015.
+- Demographic data, including... 
+- Cities long lat data (if possible, could we find a dataset which has a more exhaustive list, or I could ask Warren..)
+
+We originally intended to look at suicide rate and Google Trends data from one year, eg. 2015, but the logit model returned no significant variables as both suicide rate and depression search fluctuate a lot each year, influenced by factors like celebrity suicides which are not directly relevant to population mental health. Hence, we decided to aggregate suicide rate and Google Trends data over 12 years (constrained by data availability), from 2004 to 2015. Since demographic information is fairly stable over time, we used demographic information from the most recent year to train our model. 
 
 ## Playground
-
 
 ```{r}
 require(gtrendsR)
@@ -37,80 +45,39 @@ data("zipcode")
 require(ggmap)
 ```
 
-## Making Dataframes
-
-This gives us a master dataframe of search frequencies of “depression” over the past 12 months in the US which relate for sure to mental health. We can take different dataframes using "$": see the dataframe for details.
+## Data Wrangling
 
 ```{r}
-trend<-gtrends("suicide",c("US"),time="all")
-trend$interest_by_region
-```
 
-For example, this gives us search frequencies by cities in CA in the U.S.
-
-```{r}
 cities_longlat<-read.csv("cal_cities.csv",header=TRUE) %>% select(c(location,Latitude,Longitude))
-cities_dep<-gtrends("depression",c("US-CA"),time="all")$interest_by_city
-cities_dep<-cities_dep %>% inner_join(cities_longlat,by="location")
+gtrends_full <- read.csv("gtrends_20042015_full.csv") 
+colnames(gtrends_full)[1]<-"location" 
+gtrends_full <- gtrends_full %>% inner_join(cities_longlat, by="location")
+# The Google Trends data identifies the top 200 cities by search frequencies. We are down to 188 cities after the inner join with the data on longitutude and latitude. 
 
-write.csv(cities_dep,file="cities_top49.csv") 
+# I actually don't understand why we need to put longitute/latitude data on our cities... GIS can pick up cities, and have that data in-built I think.. 
 
-##only has 48 cities
-
-# updated gtrends data
-# I used the one with top 50, instead of the one including cities with low search volume . Though I actually think it is better to use the latter so as to increase our sample size + the effects of low search volume is more smoothed out since we are taking gtrends data over 12 years. 
-
-gtrends <- read.csv("gtrends_20042015_top50.csv")  %>%inner_join(cities_longlat,by="location")
-
-## gtrends only has 49 cities. Stanford (gtrends hit = 99) got lost
 ```
 
+This plots gtrends_full
 
 ```{r}
-# full gtrends data for all cities
-gtrends_full <- read.csv("gtrends_20042015_full.csv") %>%
-  inner_join(cities_longlat, by="location")
+# I think having the map picture with bubbles representing search frequencies is a more effective plot. 
+
+ggplot(gtrends_full,aes(x=reorder(location,Hits),y=Hits))+geom_bar(stat="identity")+theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
 
-This plots cities_dep.
-
-```{r}
-ggplot(cities_dep,aes(x=reorder(location,hits),y=hits))+geom_bar(stat="identity")+theme(axis.text.x = element_text(angle = 90, hjust = 1))
-```
-
+facilities data
 ```{r}
 
-# for (i in 1:length(cities_dep$location)) {
-#   place=geocode(cities_dep$location[i],output="latlon",source="dsk")
-#   cities_dep$lat[i]=as.numeric(place[1])
-#   cities_dep$lon[i]=as.numeric(place[2])
-#   print(place)
-# }
-cities_dep$keyword<-NULL
-cities_dep$geo<-NULL
-cities_dep$gprop<-NULL
-```
-
-```{r}
-facilities<-read.csv("filtered_licensed-healthcare-facility-listing-june-30-2017.csv",header = TRUE)
-colnames(facilities)[7]<-"zip"
-facilities$zip<-as.character(facilities$zip)
-filtered_facs<-inner_join(zipcode,facilities,by="zip")
-city_facs<-filtered_facs %>% group_by(city) %>% summarise(facility_cnt=n())
+facilities_final <- read_csv("~/math154/ma154-project5-teammentalhealth/facilities_final.csv")
+city_facs<-facilities_final %>% group_by(City) %>% summarise(facility_cnt=n())
 colnames(city_facs)[1]<-"location"
+
 ```
 
-
 ```{r}
-# center=as.numeric(geocode("United States",source="dsk"))
-# mappy<-get_map(c(-119.4179,36.7783),zoom=6,scale=2,maptype = "terrain",source="google")
-# p=ggmap(mappy,extent="device",ylab="Latitude",xlab="Longitude")
-# p=p+geom_point(data=cities_dep,aes(x=lat,y=lon),size=(cities_dep$hits/50)^2)
-# p
-```
 
-
-```{r}
 suis<-read.csv(file="death.csv",header=TRUE) %>% filter(Causes.of.Death=="SUI") %>% filter(Year >= 2004)
 colnames(suis)[2]<-"zip"
 suis$zip<-as.character(suis$zip)
@@ -119,11 +86,14 @@ suis2 <-inner_join(zipcode,suis,by="zip")
 city_suis<-suis2 %>% group_by(city) %>% summarise(suicides=sum(Count))
 colnames(city_suis)[1]<-"location"
 
-# wrangled the data for the purpose of GIS. Need to join to population by zipcode data (same source as population by city data) 
-# p/s also need to ensure that the other dem data (esp. those we are going to plot) exist at the zipcode level 
+```
+
+Although our logistics regresion model is at city-level, we also need to wrangle the data to obtain zipcode level data for the purpose of our GIS mapping 
+# Frances/Candice, can we straight up pull zipcode-level data from the source that was used for the suicide data? We may have lost the unincorporated areas if we go from city --> zipcode. 
+```{r}
+
 zip_suis <- suis2 %>% group_by(zip) %>% summarise(suicides=sum(Count)) 
 gis_suis <-suis2 %>% filter(Year == 2015) %>% select(1:3) %>% left_join(zip_suis,by="zip")
-
 
 ```
 
@@ -150,7 +120,7 @@ colnames(citydem2)<-c("location","healthcarepp","activities","socialRec","entert
 logtable_full<-inner_join(citydem,gtrends_full,by="location") %>% inner_join(city_suis,by="location") %>% inner_join(citydem2,by="location") %>% mutate(suicides=suicides*100000/pop,healthcarepp=healthcarepp/pop,activities=activities/pop,socialRec=socialRec/pop,entertainment=entertainment/pop,presdrugs=presdrugs/pop,healthcarebiz=healthcarebiz*1000/pop)
 # viewing the data frame reveals that Burbank and Mountain View are repeated 4 times somehow. remove them.
 logtable_full <- logtable_full [-c(11, 54, 55, 13,154,155), ]
-# now the table has 186 cities, whereas the full list of gtrends had 188. not a big loss
+# now the table has 175 cities, whereas the full list of gtrends had 200 
 logtable_full_crop <- logtable_full [,-c(1,24,25)]
 ```
 
@@ -161,6 +131,8 @@ logtable_full_crop_normalized <- scale(logtable_full_crop) %>% data.frame()
 
 
 REVISE-Variables significant in this regression are poverty rate (+), density of healthcare businesses(+), and black/Asian population percentwise (-) in the city. Variables which also should be considered according to this regression are percentage of white-collar workers (-), searches of "depression" (+), median income (+), hispanice population (-), and white non-Hispanic population (-). 
+
+# p/s also need to ensure that the other dem data (esp. those we are going to plot) exist at the zipcode level 
 
 ```{r}
 # try the model again using full gtrends data
@@ -216,3 +188,73 @@ facilities data
 
 ```
 
+This gives us a master dataframe of search frequencies of “depression” over the past 12 months in the US which relate for sure to mental health. We can take different dataframes using "$": see the dataframe for details.
+
+```{r}
+#trend<-gtrends("suicide",c("US"),time="all")
+#trend$interest_by_region
+```
+
+For example, this gives us search frequencies by cities in CA in the U.S.
+
+```{r}
+
+
+#cities_dep<-gtrends("depression",c("US-CA"),time="all")$interest_by_city
+#cities_dep<-cities_dep %>% inner_join(cities_longlat,by="location")
+
+#write.csv(cities_dep,file="cities_top49.csv") 
+
+##only has 48 cities
+
+# updated gtrends data
+# I used the one with top 50, instead of the one including cities with low search volume . Though I actually think it is better to use the latter so as to increase our sample size + the effects of low search volume is more smoothed out since we are taking gtrends data over 12 years. 
+
+#gtrends <- read.csv("gtrends_20042015_top50.csv")  %>%inner_join(cities_longlat,by="location")
+
+## gtrends only has 49 cities. Stanford (gtrends hit = 99) got lost
+```
+
+
+```{r}
+
+# for (i in 1:length(cities_dep$location)) {
+#   place=geocode(cities_dep$location[i],output="latlon",source="dsk")
+#   cities_dep$lat[i]=as.numeric(place[1])
+#   cities_dep$lon[i]=as.numeric(place[2])
+#   print(place)
+# }
+cities_dep$keyword<-NULL
+cities_dep$geo<-NULL
+cities_dep$gprop<-NULL
+```
+
+
+```{r}
+facilities<-read.csv("filtered_licensed-healthcare-facility-listing-june-30-2017.csv",header = TRUE)
+colnames(facilities)[7]<-"zip"
+facilities$zip<-as.character(facilities$zip)
+filtered_facs<-inner_join(zipcode,facilities,by="zip")
+city_facs<-filtered_facs %>% group_by(city) %>% summarise(facility_cnt=n())
+colnames(city_facs)[1]<-"location"
+```
+
+```{r}
+# facilities <- read.csv("filtered_licensed-healthcare-facility-listing-june-30-2017.csv")
+# facilities <- filter(facilities, LICENSE_CATEGORY_DESC == "Acute Psychiatric Hospital"|LICENSE_CATEGORY_DESC == "Psychiatric Health Facility" | LICENSE_CATEGORY_DESC =="Psychology Clinic")
+# View(facilities)
+# write.csv(facilities, file="facilities.csv")
+# # more facilities
+# facilities.2 <- read_csv("facilities.csv")
+# View(facilities.2)
+# write.csv(facilities.2, file = "facilities_2.csv")
+
+```
+
+```{r}
+# center=as.numeric(geocode("United States",source="dsk"))
+# mappy<-get_map(c(-119.4179,36.7783),zoom=6,scale=2,maptype = "terrain",source="google")
+# p=ggmap(mappy,extent="device",ylab="Latitude",xlab="Longitude")
+# p=p+geom_point(data=cities_dep,aes(x=lat,y=lon),size=(cities_dep$hits/50)^2)
+# p
+```
