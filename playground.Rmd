@@ -65,28 +65,10 @@ gtrends_full <- read.csv("gtrends_20042015_full.csv") %>%
   inner_join(cities_longlat, by="location")
 ```
 
-This plots cities_dep.
-
-```{r}
-ggplot(cities_dep,aes(x=reorder(location,hits),y=hits))+geom_bar(stat="identity")+theme(axis.text.x = element_text(angle = 90, hjust = 1))
-```
-
-```{r}
-
-# for (i in 1:length(cities_dep$location)) {
-#   place=geocode(cities_dep$location[i],output="latlon",source="dsk")
-#   cities_dep$lat[i]=as.numeric(place[1])
-#   cities_dep$lon[i]=as.numeric(place[2])
-#   print(place)
-# }
-cities_dep$keyword<-NULL
-cities_dep$geo<-NULL
-cities_dep$gprop<-NULL
-```
 
 prepping facilities data to find number per city
 ```{r}
-facilities<-read.csv("filtered_licensed-healthcare-facility-listing-june-30-2017.csv",header = TRUE)
+facilities<-read.csv("facilities_final.csv",header = TRUE)
 colnames(facilities)[7]<-"zip"
 facilities$zip<-as.character(facilities$zip)
 filtered_facs<-inner_join(zipcode,facilities,by="zip")
@@ -135,8 +117,8 @@ colnames(citydem2)<-c("location","healthcarepp","activities","socialRec","entert
 # explanatory data table using full gtrends data (over 180 cities)
 logtable_full<-inner_join(citydem,gtrends_full,by="location") %>% inner_join(city_suis,by="location") %>% inner_join(citydem2,by="location") %>% mutate(suicides=suicides*100000/pop,healthcarepp=healthcarepp/pop,activities=activities/pop,socialRec=socialRec/pop,entertainment=entertainment/pop,presdrugs=presdrugs/pop,healthcarebiz=healthcarebiz*1000/pop)
 # viewing the data frame reveals that Burbank and Mountain View are repeated 4 times somehow. remove them.
-logtable_full <- logtable_full [-c(11,12, 54, 55, 13,154,155), ]
-# now the table has 186 cities, whereas the full list of gtrends had 188. not a big loss
+logtable_full <- logtable_full [-c(11,12, 52,53,10,54, 55, 13,141,154,155), ]
+# now the table has 164 cities, whereas the full list of gtrends had 188. not a big loss
 logtable_full_crop <- logtable_full [,-c(1,24,25)]
 ```
 
@@ -174,7 +156,7 @@ x<-cbind(clustering_table, groups)
 suis_cluster<-function(clus) {
   sd<-logtable_full %>% filter(location %in% (rownames(subset(x,groups==clus)))) %>% .[["suicides"]] %>% log() %>% sd()
   mean<-logtable_full %>% filter(location %in% (rownames(subset(x,groups==clus)))) %>% .[["suicides"]] %>% log() %>% mean()
-  View(logtable_full%>% filter(location %in% (rownames(subset(x,groups==clus)))))
+  #View(logtable_full%>% filter(location %in% (rownames(subset(x,groups==clus)))))
   return(c(mean,sd))
 }
  suis_cluster(5)
@@ -183,10 +165,10 @@ suis_cluster<-function(clus) {
 ```
 
 ```{r}
-set.seed(10)
-kcluster<-kmeans(clustering_table,20, nstart=20)$cluster
-kcluster
-y<-cbind(clustering_table,kcluster)
-logtable_full %>% filter(location %in% (rownames(subset(y,groups==17))))
+# set.seed(10)
+# kcluster<-kmeans(clustering_table,20, nstart=20)$cluster
+# kcluster
+# y<-cbind(clustering_table,kcluster)
+# logtable_full %>% filter(location %in% (rownames(subset(y,groups==17))))
 ```
 
