@@ -97,24 +97,27 @@ colnames(citydem)<-c("location", "male", "female","healthcare","bluecollar","whi
 colnames(citydem2)<-c("location","healthcarepp","activities","socialRec","entertainment","pov","presdrugs","healthcarebiz")
 logtable<-inner_join(citydem,cities_dep,by="location") %>% inner_join(city_suis,by="location") %>% inner_join(citydem2,by="location") %>% mutate(suicides=suicides*100000/pop,healthcarepp=healthcarepp/pop,activities=activities/pop,socialRec=socialRec/pop,entertainment=entertainment/pop,presdrugs=presdrugs/pop,healthcarebiz=healthcarebiz*1000/pop)
 #logtable$hiRate<- ifelse(logtable$suicides>median(logtable$suicides),1,0)
-logtable_crop<-logtable[,-c(1,23,24)]
+logtable_crop<-logtable[,-c(1,23:27)]
+norm_logtable<-logtable %>% select(c(nonfamily,presdrugs,asian,medIncome)) %>% sapply(.,as.numeric) %>% scale() %>% as.data.frame()
+whole_norm_logtable<-logtable[,-c(1,23:27)] %>% sapply(.,as.numeric) %>% scale() %>% as.data.frame()
 ```
 
 ```{r}
 set.seed(47)
-model<-lm((suicides)~.,data=logtable_crop)
+model<-lm((suicides)~.,data=whole_norm_logtable)
 summary(model)
 ```
 Variables significant in this regression are poverty rate (+), density of healthcare businesses(+), and black/Asian population percentwise (-) in the city. Variables which also should be considered according to this regression are percentage of white-collar workers (-), searches of "depression" (+), median income (+), hispanice population (-), and white non-Hispanic population (-). 
 ```{r}
-ggplot(logtable_crop,aes(x=hits,y=log(suicides)))+geom_point()
+ggplot(logtable_crop,aes(x=whitecollar,y=log(suicides)))+geom_point()
 ```
 
 
 ```{r}
 library(caret)
-modelrf<-train(suicides~.,method="rf",tuneGrid=data.frame(mtry=c(2,3,4,5,6)),data=logtable_crop)
+modelrf<-train(suicides~.,method="rf",tuneGrid=data.frame(mtry=c(2,3,4,5,6)),data=whole_norm_logtable,importance=TRUE)
 modelrf$finalModel
+importance(modelrf$finalModel)
 
 ```
 
@@ -130,4 +133,23 @@ facilities data
 # write.csv(facilities.2, file = "facilities_2.csv")
 ```
 
+```{r}
+rownames(norm_logtable)<-logtable[,1]
+dist_whole<-dist(norm_logtable) 
+cluster_whole<-hclust(dist_whole,method="centroid")
+plot(cluster_whole, labels=logtable[,1])
+groups=cutree(cluster_whole,k=12)
+groups
+x<-cbind(norm_logtable, groups)
+
+suis_cluster<-function(clus) {
+  sd<-logtable %>% filter(location %in% rownames(subset(x,groups==clus))) %>% .[["suicides"]] %>% log() %>% sd()
+  mean<-logtable %>% filter(location %in% rownames(subset(x,groups==clus))) %>% .[["suicides"]] %>% log() %>% mean()
+  View(logtable %>% filter(location %in% rownames(subset(x,groups==clus))))
+  return(c(mean,sd))
+}
+suis_cluster(2)
+(lapply(1:12,suis_cluster))
+
+```
 
