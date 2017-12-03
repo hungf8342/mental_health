@@ -61,7 +61,7 @@ gtrends <- read.csv("gtrends_20042015_top50.csv")  %>%inner_join(cities_longlat,
 
 ```{r}
 # full gtrends data for all cities
-gtrends_full <- read.csv("gtrends__20042015_full.csv") %>%
+gtrends_full <- read.csv("gtrends_20042015_full.csv") %>%
   inner_join(cities_longlat, by="location")
 ```
 
@@ -138,6 +138,11 @@ logtable_full <- logtable_full [-c(11, 54, 55, 13,154,155), ]
 logtable_full_crop <- logtable_full [,-c(1,23,24)]
 ```
 
+```{r}
+# normalize the explanatory variables data frame
+logtable_full_crop_normalized <- scale(logtable_full_crop) %>% data.frame()
+```
+
 
 ```{r}
 set.seed(47)
@@ -149,7 +154,7 @@ REVISE-Variables significant in this regression are poverty rate (+), density of
 ```{r}
 # try the model again using full gtrends data
 set.seed(47)
-model_full<-lm((suicides)~.,data=logtable_full_crop)
+model_full<-lm((suicides)~.,data=logtable_full_crop_normalized)
 summary(model_full)
 ```
 Significant variables include:
