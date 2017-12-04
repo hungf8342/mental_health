@@ -52,8 +52,7 @@ cities_longlat<-read.csv("cal_cities.csv",header=TRUE) %>% select(c(location,Lat
 Full gtrends data for all cities for depression search
 ```{r}
 gtrends_full <- read.csv("gtrends_20042015_full.csv") %>%
-  `colnames<-`(c("location", "hits")) %>%
-  inner_join(cities_longlat, by="location")
+  `colnames<-`(c("location", "hits"))
 ```
 
 
@@ -63,6 +62,7 @@ facilities<-read.csv("facilities_final.csv",header = TRUE)
 colnames(facilities)[7]<-"zip"
 facilities$zip<-as.character(facilities$zip)
 filtered_facs<-inner_join(zipcode,facilities,by="zip")
+# filtered_facs has exactly the same number of observations as facilities so I don't think the preceding three lines of code are necessary. Also it puts the generic long/lat for the zipcode while the original facilities has the specific long lat for the facility. 
 city_facs<-filtered_facs %>% group_by(city) %>% summarise(facility_cnt=n())
 colnames(city_facs)[1]<-"location"
 ```
@@ -93,17 +93,20 @@ citydem$FIPS<-NULL
 citydem2$FIPS<-NULL
 colnames(citydem)<-c("location", "male", "female","healthcare","bluecollar","whitecollar","nonfamily","medAge","AmInd", "whiteNonHisp","hisp","white","black","asian","medIncome","lessHS","HS","Bachelors","pop","unmarriedMpop","unemployed")
 citydem<-inner_join(citydem,city_facs,by="location")
+# Remove the Burbank and Mountain View entries that refer to census-designated areas (duplicate names with the actual cities will create problems later if not removed)
+citydem <- citydem [-c(36,121), ]
+citydem2 <- citydem [-c(636,803), ]
 citydem$facility_cnt<-citydem$facility_cnt*100000/citydem$pop
 colnames(citydem2)<-c("location","healthcarepp","activities","socialRec","entertainment","pov","presdrugs","healthcarebiz")
+
 ```
 
 Append all data frames
 ```{r}
 logtable_full<-inner_join(citydem,gtrends_full,by="location") %>% inner_join(city_suis,by="location") %>% inner_join(citydem2,by="location") %>% mutate(suicides=suicides*100000/pop,healthcarepp=healthcarepp/pop,activities=activities/pop,socialRec=socialRec/pop,entertainment=entertainment/pop,presdrugs=presdrugs/pop,healthcarebiz=healthcarebiz*1000/pop)
-# viewing the data frame reveals that Burbank and Mountain View are repeated 4 times somehow. remove them.
-logtable_full <- logtable_full [-c(11,12, 52,53,10,54, 55, 13,141,154,155), ]
-# now the table has 164 cities, whereas the full list of gtrends had 188. not a big loss
-logtable_full_crop <- logtable_full [,-c(1,24,25)]
+
+# now the table has 174 cities, whereas the full list of gtrends had 200. Not a big loss
+logtable_full_crop <- logtable_full [,-c(1)]
 # normalize the explanatory variables data frame
 logtable_full_crop_normalized <- scale(logtable_full_crop) %>% data.frame()
 ```
