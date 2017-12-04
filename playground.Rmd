@@ -95,32 +95,36 @@ colnames(citydem)<-c("location", "male", "female","healthcare","bluecollar","whi
 citydem<-inner_join(citydem,city_facs,by="location")
 # Remove the Burbank and Mountain View entries that refer to census-designated areas (duplicate names with the actual cities will create problems later if not removed)
 citydem <- citydem [-c(36,121), ]
-citydem2 <- citydem [-c(636,803), ]
+citydem2 <- citydem2 [-c(636,803), ]
 citydem$facility_cnt<-citydem$facility_cnt*100000/citydem$pop
 colnames(citydem2)<-c("location","healthcarepp","activities","socialRec","entertainment","pov","presdrugs","healthcarebiz")
 
 ```
 
-Append all data frames
+Append all dataframes 
 ```{r}
-logtable_full<-inner_join(citydem,gtrends_full,by="location") %>% inner_join(city_suis,by="location") %>% inner_join(citydem2,by="location") %>% mutate(suicides=suicides*100000/pop,healthcarepp=healthcarepp/pop,activities=activities/pop,socialRec=socialRec/pop,entertainment=entertainment/pop,presdrugs=presdrugs/pop,healthcarebiz=healthcarebiz*1000/pop)
+
+logtable <- inner_join(citydem,gtrends_full,by="location") %>% inner_join(city_suis,by="location") %>% inner_join(citydem2,by="location") %>% mutate(suicides=suicides*100000/pop,healthcarepp=healthcarepp/pop,activities=activities/pop,socialRec=socialRec/pop,entertainment=entertainment/pop,presdrugs=presdrugs/pop,healthcarebiz=healthcarebiz*1000/pop)
 
 # now the table has 174 cities, whereas the full list of gtrends had 200. Not a big loss
-logtable_full_crop <- logtable_full [,-c(1)]
+
+logtable_crop <- logtable [,-c(1)]
 # normalize the explanatory variables data frame
-logtable_full_crop_normalized <- scale(logtable_full_crop) %>% data.frame()
+logtable_crop_normalized <- scale(logtable_crop) %>% data.frame()
+
 ```
 
 Build a logit model to predict suicide rate at the city level
 ```{r}
+
 set.seed(47)
-model_full<-lm((suicides)~.,data=logtable_full_crop_normalized)
+model_full<-lm((suicides)~.,data=logtable_crop_normalized)
 summary(model_full)
+
 ```
 
 Significant variables include:
-Facility density (#mental health facilities/100,000 people) (+), poverty rate (+), % population black (big -), % population native (+), % population asian(big -), median age (+), % population with up to HS education (-), unemployment rate (-), healthcare spending per person (big -), social/recreation/gym club spending (big -), and prescription drug spending (big +). Other variables to consider would be entertainment (excluding movies and museums) spending (big +), % population not in a family household (-), and % population hispanic (big -).
-
+Facility density (#mental health facilities/100,000 people) (+), % population native (+), median age (+), healthcare spending per person (big -), social/recreation/gym club spending (big -), prescription drug spending (big +), unemployment rate (-) and movies/parks/museum spending (big +). 
 
 
 ```{r}
