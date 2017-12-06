@@ -61,9 +61,7 @@ Prepping facilities data to find number of facilities per city
 facilities<-read.csv("facilities_final.csv",header = TRUE)
 colnames(facilities)[7]<-"zip"
 facilities$zip<-as.character(facilities$zip)
-filtered_facs<-inner_join(zipcode,facilities,by="zip")
-# filtered_facs has exactly the same number of observations as facilities so I don't think the preceding three lines of code are necessary. Also it puts the generic long/lat for the zipcode while the original facilities has the specific long lat for the facility. 
-city_facs<-filtered_facs %>% group_by(city) %>% summarise(facility_cnt=n())
+city_facs<-facilities %>% group_by(city) %>% summarise(facility_cnt=n())
 colnames(city_facs)[1]<-"location"
 ```
 
@@ -77,10 +75,9 @@ suis2 <-inner_join(zipcode,suis,by="zip")
 city_suis<-suis2 %>% group_by(city) %>% summarise(suicides=sum(Count))
 colnames(city_suis)[1]<-"location"
 
-# wrangled the data for the purpose of GIS. Need to join to population by zipcode data (same source as population by city data) 
-# p/s also need to ensure that the other dem data (esp. those we are going to plot) exist at the zipcode level 
-zip_suis <- suis2 %>% group_by(zip) %>% summarise(suicides=sum(Count)) 
-gis_suis <-suis2 %>% filter(Year == 2015) %>% select(1:3) %>% left_join(zip_suis,by="zip")
+# wrangled the data for the purpose of GIS (to use later)
+zip_suis <- suis %>% group_by(zip) %>% summarise(suicides=sum(Count)) 
+
 ```
 
 Adding in city demographic data for 2017
@@ -99,18 +96,32 @@ citydem2 <- citydem2 [-c(636,803), ]
 citydem$facility_cnt<-citydem$facility_cnt*100000/citydem$pop
 colnames(citydem2)<-c("location","healthcarepp","activities","socialRec","entertainment","pov","presdrugs","healthcarebiz")
 
+# data weangling for GIS mapping 
+zipcode_dem <- read_csv("~/math154/ma154-project5-teammentalhealth/explansToViz-zipcode.csv")
+zipcode_dem$Name<-gsub(",.*","",zipcode_dem$Name)
+zipcode_dem$FIPS<-NULL
+colnames(zipcode_dem)[1]<-"zip"
+zipcode_dem$zip<-as.character(zipcode_dem$zip)
+zipcode_dem2 <- zipcode_dem %>% left_join(zip_suis,by="zip") %>% left_join(zipcode,by="zip") %>% filter(state=="CA")
+write.csv(zipcode_dem2,"gis_zip_dem.csv")
+
 ```
 
 Append all dataframes 
 ```{r}
 
 logtable <- inner_join(citydem,gtrends_full,by="location") %>% inner_join(city_suis,by="location") %>% inner_join(citydem2,by="location") %>% mutate(suicides=suicides*100000/pop,healthcarepp=healthcarepp/pop,activities=activities/pop,socialRec=socialRec/pop,entertainment=entertainment/pop,presdrugs=presdrugs/pop,healthcarebiz=healthcarebiz*1000/pop)
-
 # now the table has 174 cities, whereas the full list of gtrends had 200. Not a big loss
 
 logtable_crop <- logtable [,-c(1)]
 # normalize the explanatory variables data frame
 logtable_crop_normalized <- scale(logtable_crop) %>% data.frame()
+
+# for purpose of identifying which cities to map 
+zip.no <- zipcode_dem2 %>% group_by(city) %>% summarise(zip.n=n())
+colnames(zip.no)[1]<-"location"
+gistable <- logtable %>% select(c(1,19,24)) %>% left_join(zip.no,by="location")
+# We wanted to choose one city with high suicide rate, and one with a low suicide rate. The two cities should have a similar population, and should have a min of 4 zipcodes (so that plotting variables at the zipcode level will be more useful). We eventually decided on Inglewood and Santa Barbara.  
 
 ```
 
@@ -160,3 +171,6 @@ suis_cluster<-function(clus) {
 # logtable_full %>% filter(location %in% (rownames(subset(y,groups==17))))
 ```
 
+
+
+}}
