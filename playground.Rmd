@@ -142,7 +142,16 @@ Facility density (#mental health facilities/100,000 people) (+), % population na
 
 
 ```{r}
-#ggplot(logtable_crop,aes(x=whitecollar,y=log(suicides)))+geom_point()
+library(ggrepel)
+library(caret)
+set.seed(35)
+part<-sample(nrow(logtable_crop_normalized), 50)
+loc.toUse<-logtable_full_crop_normalized[part,]
+ggplot(loc.toUse,aes(x=socialRec,y=log(suicides)))+geom_point()+
+  geom_label_repel(aes(fill=facility_cnt>.4,label=logtable_full[part,][["location"]]),fontface = 'bold',     color = 'black', box.padding = 0.5, point.padding = 1, segment.color = 'grey50')+
+  theme_classic(base_size = 16)+
+  theme(legend.position = "none") +
+  labs(title = "Log(suicide rates) vs. Social Recreation Spending", x = "Log(suicide rates)", y = "social recreation spending per person")
 ```
 
 ```{r}
