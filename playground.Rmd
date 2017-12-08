@@ -97,20 +97,23 @@ citydem$facility_cnt<-citydem$facility_cnt*100000/citydem$pop
 colnames(citydem2)<-c("location","healthcarepp","activities","socialRec","entertainment","pov","presdrugs","healthcarebiz")
 
 # data weangling for GIS mapping 
-zipcode_dem <- read_csv("~/math154/ma154-project5-teammentalhealth/explansToViz-zipcode.csv")
+zipcode_dem <- read.csv("explansToViz-zipcode.csv")
 zipcode_dem$Name<-gsub(",.*","",zipcode_dem$Name)
 zipcode_dem$FIPS<-NULL
 colnames(zipcode_dem)[1]<-"zip"
 zipcode_dem$zip<-as.character(zipcode_dem$zip)
 zipcode_dem2 <- zipcode_dem %>% left_join(zip_suis,by="zip") %>% left_join(zipcode,by="zip") %>% filter(state=="CA")
 write.csv(zipcode_dem2,"gis_zip_dem.csv")
-
+# add city area (in square miles) info from GIS
+landArea <- foreign::read.dbf("LandCity.dbf")
+landArea <- landArea[,c(1,3)]
+colnames(landArea) <- c("location", "landArea")
 ```
 
 Append all dataframes 
 ```{r}
 
-logtable <- inner_join(citydem,gtrends_full,by="location") %>% inner_join(city_suis,by="location") %>% inner_join(citydem2,by="location") %>% mutate(suicides=suicides*100000/pop,healthcarepp=healthcarepp/pop,activities=activities/pop,socialRec=socialRec/pop,entertainment=entertainment/pop,presdrugs=presdrugs/pop,healthcarebiz=healthcarebiz*1000/pop)
+logtable <- inner_join(citydem,gtrends_full,by="location") %>% inner_join(city_suis,by="location") %>% inner_join(citydem2,by="location") %>% inner_join(landArea, by="location") %>% mutate(suicides=suicides*100000/pop,healthcarepp=healthcarepp/pop,activities=activities/pop,socialRec=socialRec/pop,entertainment=entertainment/pop,presdrugs=presdrugs/pop,healthcarebiz=healthcarebiz*1000/pop, pop_dens=landArea/pop)
 # now the table has 174 cities, whereas the full list of gtrends had 200. Not a big loss
 
 logtable_crop <- logtable [,-c(1)]
@@ -135,7 +138,7 @@ summary(model_full)
 ```
 
 Significant variables include:
-Facility density (#mental health facilities/100,000 people) (+), % population native (+), median age (+), healthcare spending per person (big -), social/recreation/gym club spending (big -), prescription drug spending (big +), unemployment rate (-) and movies/parks/museum spending (big +). 
+Facility density (#mental health facilities/100,000 people) (+), % population native (+), median age (+), healthcare spending per person (big -), social/recreation/gym club spending (big -), prescription drug spending (big +), population density (+), unemployment rate (-), and movies/parks/museum spending (big +). 
 
 
 ```{r}
