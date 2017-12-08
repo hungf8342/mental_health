@@ -61,7 +61,7 @@ Prepping facilities data to find number of facilities per city
 facilities<-read.csv("facilities_final.csv",header = TRUE)
 colnames(facilities)[7]<-"zip"
 facilities$zip<-as.character(facilities$zip)
-city_facs<-facilities %>% group_by(city) %>% summarise(facility_cnt=n())
+city_facs<-facilities %>% group_by(City) %>% summarise(facility_cnt=n())
 colnames(city_facs)[1]<-"location"
 ```
 
@@ -146,23 +146,23 @@ Facility density (#mental health facilities/100,000 people) (+), % population na
 ```
 
 ```{r}
-clustering_table<-logtable_full_crop_normalized %>% select(presdrugs,socialRec,healthcarepp,facility_cnt,asian,AmInd)
-rownames(clustering_table)<-logtable_full[,1]
-dist_whole<-dist(clustering_table)
-cluster_whole<-hclust(dist_whole,method="centroid")
-plot(cluster_whole, labels=logtable_full[,1])
-groups=cutree(cluster_whole,k=20)
-groups
-x<-cbind(clustering_table, groups)
-
-suis_cluster<-function(clus) {
-  sd<-logtable_full %>% filter(location %in% (rownames(subset(x,groups==clus)))) %>% .[["suicides"]] %>% log() %>% sd()
-  mean<-logtable_full %>% filter(location %in% (rownames(subset(x,groups==clus)))) %>% .[["suicides"]] %>% log() %>% mean()
-  #View(logtable_full%>% filter(location %in% (rownames(subset(x,groups==clus)))))
-  return(c(mean,sd))
-}
- suis_cluster(5)
-#(lapply(1:12,suis_cluster))
+# clustering_table<-logtable_full_crop_normalized %>% select(presdrugs,socialRec,healthcarepp,facility_cnt,asian,AmInd)
+# rownames(clustering_table)<-logtable_full[,1]
+# dist_whole<-dist(clustering_table)
+# cluster_whole<-hclust(dist_whole,method="centroid")
+# plot(cluster_whole, labels=logtable_full[,1])
+# groups=cutree(cluster_whole,k=20)
+# groups
+# x<-cbind(clustering_table, groups)
+# 
+# suis_cluster<-function(clus) {
+#   sd<-logtable_full %>% filter(location %in% (rownames(subset(x,groups==clus)))) %>% .[["suicides"]] %>% log() %>% sd()
+#   mean<-logtable_full %>% filter(location %in% (rownames(subset(x,groups==clus)))) %>% .[["suicides"]] %>% log() %>% mean()
+#   #View(logtable_full%>% filter(location %in% (rownames(subset(x,groups==clus)))))
+#   return(c(mean,sd))
+# }
+#  suis_cluster(5)
+# #(lapply(1:12,suis_cluster))
 
 ```
 
