@@ -96,7 +96,7 @@ citydem2$FIPS<-NULL
 colnames(citydem)<-c("location", "male", "female","healthcare","bluecollar","whitecollar","nonfamily","medAge","AmInd", "whiteNonHisp","hisp","white","black","asian","medIncome","lessHS","HS","Bachelors","pop","unmarriedMpop","unemployed")
 citydem<-inner_join(citydem,city_facs,by="location")
 # Remove the Burbank and Mountain View entries that refer to census-designated areas (duplicate names with the actual cities will create problems later if not removed)
-citydem <- citydem [-c(36,121), ]
+citydem <- citydem [-c(124,38), ]
 citydem2 <- citydem2 [-c(636,803), ]
 citydem$facility_cnt<-citydem$facility_cnt*100000/citydem$pop
 colnames(citydem2)<-c("location","healthcarepp","activities","socialRec","entertainment","pov","presdrugs","healthcarebiz")
@@ -118,12 +118,14 @@ colnames(landArea) <- c("location", "landArea")
 Append all dataframes 
 ```{r}
 
-logtable <- inner_join(citydem,gtrends_full,by="location") %>% inner_join(city_suis,by="location") %>% inner_join(citydem2,by="location") %>% inner_join(landArea, by="location") %>% mutate(suicides=suicides*100000/pop,healthcarepp=healthcarepp/pop,activities=activities/pop,socialRec=socialRec/pop,entertainment=entertainment/pop,presdrugs=presdrugs/pop,healthcarebiz=healthcarebiz*1000/pop, pop_dens=landArea/pop)
+logtable <- inner_join(citydem,gtrends_full,by="location") %>% inner_join(city_suis,by="location") %>% inner_join(citydem2,by="location") %>% inner_join(landArea, by="location") %>% mutate(suicides=suicides*100000/pop,healthcarepp=healthcarepp/pop,activities=activities/pop,socialRec=socialRec/pop,entertainment=entertainment/pop,presdrugs=presdrugs/pop,healthcarebiz=healthcarebiz*1000/pop, pop_dens=landArea/pop) %>% .[-9,]
 # now the table has 174 cities, whereas the full list of gtrends had 200. Not a big loss
-
+write.csv(logtable,"logtable.csv")
 logtable_crop <- logtable [,-c(1)]
 # normalize the explanatory variables data frame
 logtable_crop_normalized <- scale(logtable_crop) %>% data.frame()
+row.names(logtable_crop_normalized)<-logtable$location
+
 
 # for purpose of identifying which cities to map 
 zip.no <- zipcode_dem2 %>% group_by(city) %>% summarise(zip.n=n())
@@ -147,16 +149,15 @@ Facility density (#mental health facilities/100,000 people) (+), % population na
 
 
 ```{r}
-library(ggrepel)
-library(caret)
 set.seed(35)
-part<-sample(nrow(logtable_crop_normalized), 50)
-loc.toUse<-logtable_crop_normalized[part,]
-ggplot(loc.toUse,aes(x=socialRec,y=log(suicides)))+geom_point()+
-  geom_label_repel(aes(fill=facility_cnt>.4,label=logtable[part,][["location"]]),fontface = 'bold',     color = 'black', box.padding = 0.5, point.padding = 1, segment.color = 'grey50')+
+part<-sample(rownames(logtable_crop_normalized[logtable_crop_normalized$suicides>0,]),60)
+locs.toUse<-logtable_crop_normalized[part,]
+ggplot(locs.toUse,aes(x=socialRec,y=log(suicides)))+geom_point(aes(color=facility_cnt>.4))+
+  geom_label_repel(aes(fill=facility_cnt>.4,label=part),fontface = 'bold',     color = 'black', box.padding = 0.5, point.padding = 1, segment.color = 'grey50')+
   theme_classic(base_size = 16)+
-  theme(legend.position = "none") +
-  labs(title = "Log(suicide rates) vs. Social Recreation Spending", x = "Log(suicide rates)", y = "social recreation spending per person")
+  theme(legend.position = "none", plot.title = element_text(size=15,hjust = 0.5), axis.text.x = element_text(size=5),
+        axis.text.y = element_text(size=5), )+
+  labs(title = "Suicides, Social Rec $, & Facility Density", y = "Log (suicide rates)", x = "Social Rec Spending")
 ```
 
 ```{r}
