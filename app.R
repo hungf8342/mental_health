@@ -20,8 +20,7 @@ logtable<-read.csv("logtable.csv",header=TRUE)
 logtable_crop <- logtable [,-c(1)]
 # normalize the explanatory variables data frame
 logtable_crop<-lapply(logtable_crop,as.numeric) %>% as.data.frame()
-logtable_crop_normalized <- scale(logtable_crop) %>% data.frame()
-row.names(logtable_crop_normalized)<-logtable$location
+row.names(logtable_crop)<-logtable$location
 
 
 # Define UI for application that draws a histogram
@@ -33,10 +32,10 @@ ui <- fluidPage(
    # Sidebar with a slider input for number of bins 
    sidebarLayout(
       sidebarPanel(
-        selectInput('xcol','X Variable', names(logtable_crop_normalized)),
-        selectInput('color', 'Color Variable', names(logtable_crop_normalized)),
-        numericInput('colThreshold', "Color Threshold",0,min=-1.5,max=1.5),
-        numericInput('numCities',"Number of Cities", 15, min=2, max=60)
+        selectInput('xcol','X-Axis', names(logtable_crop)),
+        selectInput('color', 'Color Variable', names(logtable_crop)),
+        sliderInput('colThreshold', "Quantile Color Cutoff G (red<G<teal)",0.5,min=0,max=1),
+        sliderInput('numCities',"Number of Cities", 15, min=2, max=30)
       ),
       
       # Show a plot of the generated distribution
@@ -52,12 +51,12 @@ server <- function(input, output) {
 
    part<-reactive({
      set.seed(35)
-     sample(rownames(logtable_crop_normalized[logtable_crop_normalized$suicides>0,]),input$numCities)
+     sample(rownames(logtable_crop[logtable_crop$suicides>0,]),input$numCities)
    })
    
    locs.toUse<-reactive({
-     logtable_crop_normalized[part(),c("suicides",input$xcol,input$color)] %>% 
-       mutate(suicides=log(suicides)) %>% mutate(pcolor=(.[[input$color]]>(input$colThreshold)))
+     logtable_crop[part(),c("suicides",input$xcol,input$color)] %>% 
+       mutate(suicides=log(suicides)) %>% mutate(pcolor=(.[[input$color]]>quantile(logtable_crop[[input$color]],input$colThreshold)))
    })
    
    output$table<-renderTable({
