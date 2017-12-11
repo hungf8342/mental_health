@@ -6,7 +6,7 @@ output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE,warning=FALSE)
+knitr::opts_chunk$set(echo = TRUE,warning=FALSE, tidy=TRUE)
 ```
 
 ## StoryMap
@@ -93,13 +93,13 @@ citydem2$Name<-gsub(",.*","",citydem2$Name)
 citydem$Name<-gsub(",.*","",citydem$Name)
 citydem$FIPS<-NULL
 citydem2$FIPS<-NULL
-colnames(citydem)<-c("location", "male", "female","healthcare","bluecollar","whitecollar","nonfamily","medAge","AmInd", "whiteNonHisp","hisp","white","black","asian","medIncome","lessHS","HS","Bachelors","pop","unmarriedMpop","unemployed")
+colnames(citydem)<-c("location", "male", "female","healthcare.per.household","bluecollar","whitecollar","nonfamily","medAge","NativeAm", "whiteNonHisp","hispanic","white","black","asian","medIncome","lessHS","HS","Bachelors","pop","unmarriedMpop","unemployed")
 citydem<-inner_join(citydem,city_facs,by="location")
 # Remove the Burbank and Mountain View entries that refer to census-designated areas (duplicate names with the actual cities will create problems later if not removed)
 citydem <- citydem [-c(124,38), ]
 citydem2 <- citydem2 [-c(636,803), ]
 citydem$facility_cnt<-citydem$facility_cnt*100000/citydem$pop
-colnames(citydem2)<-c("location","healthcarepp","activities","socialRec","entertainment","pov","presdrugs","healthcarebiz")
+colnames(citydem2)<-c("location","healthcare.per.person","activities.per.person","socialRec.per.person","entertainment.per.person","poverty","presdrugs.per.person","healthcarebiz.per.1000")
 
 # data weangling for GIS mapping 
 zipcode_dem <- read.csv("explansToViz-zipcode.csv")
@@ -115,13 +115,38 @@ landArea <- landArea[,c(1,3)]
 colnames(landArea) <- c("location", "landArea")
 ```
 
-Append all dataframes 
-```{r}
 
-logtable <- inner_join(citydem,gtrends_full,by="location") %>% inner_join(city_suis,by="location") %>% inner_join(citydem2,by="location") %>% inner_join(landArea, by="location") %>% mutate(suicides=suicides*100000/pop,healthcarepp=healthcarepp/pop,activities=activities/pop,socialRec=socialRec/pop,entertainment=entertainment/pop,presdrugs=presdrugs/pop,healthcarebiz=healthcarebiz*1000/pop, pop_dens=landArea/pop) %>% .[-9,]
+```{r}
+logtable <- inner_join(citydem,gtrends_full,by="location") %>% inner_join(city_suis,by="location") %>% inner_join(citydem2,by="location") %>% inner_join(landArea, by="location") %>% mutate(suicides=suicides*100000/pop,healthcare.per.person=healthcare.per.person/pop,activities.per.person=activities.per.person/pop,socialRec.per.person=socialRec.per.person/pop,entertainment.per.person=entertainment.per.person/pop,presdrugs.per.person=presdrugs.per.person/pop,healthcarebiz.per.1000=healthcarebiz.per.1000*1000/pop, pop_dens=landArea/pop)
+```
+
+If we want to reliably determine significant variables, we want to ensure that variables aren't collinear. Looking at the correlation plot of variables in logtable, we see significant correlation between some variables.
+
+```{r fig1, fig.height = 8, fig.width = 8, fig.align = "center"}
+library(corrplot)
+corrplot(cor(logtable[,-1]))
+```
+
+To determine which variables to remove, we look at the VIF and choose variables with the highest VIFs to discount in the final analysis. We use a linear model using all variables to look at the initial VIF, and then remove variables one at a time, testing to see how the predictions and VIFs of our model change.
+
+```{r}
+library(DAAG)
+set.seed(35)
+model_full<-lm((suicides)~.,data=logtable[,-1])
+test<-predict(model_full,logtable[,-1])
+toCompare<-data.frame(cbind(actuals=logtable_crop.test$suicides,predicts=tests))
+cor(toCompare)
+vif(model_full)
+```
+
+We decide to remove activity, entertainment, social recreation, and healthcare spending per person, female, white(non-Hispanic), and white population, nonfamily households, and healthcare spending per household from the explanatory variables.
+```{r}
+logtable<-logtable %>% select(-c(activities.per.person,entertainment.per.person,female,whiteNonHisp,healthcare.per.person,socialRec.per.person,white,nonfamily,healthcare.per.household,asian,Bachelors,medIncome,black,HS,bluecollar,whitecollar))
 # now the table has 174 cities, whereas the full list of gtrends had 200. Not a big loss
 write.csv(logtable,"logtable.csv")
+
 logtable_crop <- logtable [,-c(1)]
+row.names(logtable_crop)<-logtable$location
 # normalize the explanatory variables data frame
 logtable_crop_normalized <- scale(logtable_crop) %>% data.frame()
 row.names(logtable_crop_normalized)<-logtable$location
@@ -130,30 +155,50 @@ row.names(logtable_crop_normalized)<-logtable$location
 # for purpose of identifying which cities to map 
 zip.no <- zipcode_dem2 %>% group_by(city) %>% summarise(zip.n=n())
 colnames(zip.no)[1]<-"location"
-gistable <- logtable %>% select(c(1,19,24)) %>% left_join(zip.no,by="location")
+#gistable <- logtable %>% select(c(1,19,24)) %>% left_join(zip.no,by="location")
 # We wanted to choose one city with high suicide rate, and one with a low suicide rate. The two cities should have a similar population, and should have a min of 4 zipcodes (so that plotting variables at the zipcode level will be more useful). We eventually decided on Inglewood and Santa Barbara.  
 
 ```
 
-Build a logit model to predict suicide rate at the city level
+We partition the data into a training and test set, then build our model.
 ```{r}
-
-set.seed(47)
-model_full<-lm((suicides)~.,data=logtable_crop_normalized)
+library(caret)
+trains<-createDataPartition(logtable_crop$suicides,p=0.75,list=FALSE)
+logtable_crop.train<-logtable_crop[trains,]
+logtable_crop.test<-logtable_crop[-trains,]
+set.seed(35)
+model_full<-lm((suicides)~.,data=logtable_crop.train)
 summary(model_full)
 
 ```
 
 Significant variables include:
-Facility density (#mental health facilities/100,000 people) (+), % population native (+), median age (+), healthcare spending per person (big -), social/recreation/gym club spending (big -), prescription drug spending (big +), population density (+), unemployment rate (-), and movies/parks/museum spending (big +). 
+Facility density (#mental health facilities/100,000 people) (+), % population Native American(+), unemployment rate (-), % population Hispanic (-), and population density (+).  Borderline significant variables are median age (+) and % population in poverty (+).
+
+We test our model on the test data and get a 83.1% correlation rate.
+
+```{r}
+tests<-predict(model_full,logtable_crop.test)
+toCompare<-data.frame(cbind(actuals=logtable_crop.test$suicides,predicts=tests))
+cor(toCompare)
+head(toCompare)
+
+```
+
+Looking at the VIFs for the explanatory variables, we can see that 
+```{r}
+vif(model_full)
+corrplot(cor(logtable_crop))
+```
 
 
 ```{r}
+require(ggrepel)
 set.seed(35)
-part<-sample(rownames(logtable_crop_normalized[logtable_crop_normalized$suicides>0,]),60)
-locs.toUse<-logtable_crop_normalized[part,]
-ggplot(locs.toUse,aes(x=socialRec,y=log(suicides)))+geom_point(aes(color=facility_cnt>.4))+
-  geom_label_repel(aes(fill=facility_cnt>.4,label=part),fontface = 'bold',     color = 'black', box.padding = 0.5, point.padding = 1, segment.color = 'grey50')+
+part<-sample(rownames(logtable_crop[logtable_crop$suicides>0,]),60)
+locs.toUse<-logtable_crop[part,]
+ggplot(locs.toUse,aes(x=NativeAm,y=log(suicides)))+geom_point(aes(color=facility_cnt>.4))+
+  geom_label_repel(aes(fill=facility_cnt>quantile(logtable_crop$facility_cnt,0.5),label=part),fontface = 'bold',     color = 'black', box.padding = 0.5, point.padding = 1, segment.color = 'grey50')+
   theme_classic(base_size = 16)+
   theme(legend.position = "none", plot.title = element_text(size=15,hjust = 0.5), axis.text.x = element_text(size=5),
         axis.text.y = element_text(size=5), )+
