@@ -6,7 +6,7 @@ output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE,warning=FALSE)
+knitr::opts_chunk$set(echo = FALSE,warning=FALSE,tidy=TRUE,warning=FALSE,message=FALSE)
 ```
 
 ## StoryMap Presentation
@@ -38,9 +38,10 @@ require(dplyr)
 require(zipcode)
 data("zipcode")
 require(ggmap)
+require(caret)
 ```
 
-Making Dataframes
+### Making Dataframes
 
  - Longitude and latitude of cities (for mapping them later)
 ```{r}
@@ -111,58 +112,115 @@ landArea <- landArea[,c(1,3)]
 colnames(landArea) <- c("location", "landArea")
 ```
 
-Append all dataframes 
 ```{r}
-
 logtable <- inner_join(citydem,gtrends_full,by="location") %>% inner_join(city_suis,by="location") %>% inner_join(citydem2,by="location") %>% inner_join(landArea, by="location") %>% mutate(suicides=suicides*100000/pop,healthcare.per.person=healthcare.per.person/pop,activities.per.person=activities.per.person/pop,socialRec.per.person=socialRec.per.person/pop,entertainment.per.person=entertainment.per.person/pop,presdrugs.per.person=presdrugs.per.person/pop,healthcarebiz.per.1000=healthcarebiz.per.1000*1000/pop, pop_dens=landArea/pop)
-# now the table has 174 cities, whereas the full list of gtrends had 200. Not a big loss
+```
 
+###Satisfying Conditions for Linear Regression 
+
+If we want to reliably determine significant variables, we want to ensure that variables aren't collinear. Looking at the correlation plot of variables in our data, we see significant correlation between some variables.
+
+```{r fig1, fig.height = 8, fig.width = 8, fig.align = "center"}
+library(corrplot)
+corrplot(cor(logtable[,-1]))
+```
+
+We can use VIFs (Variance Inflation Factors), which measure how much the variance of a variable's coefficient changes if predictors in a model are correlated, to determine which variables to remove. We first split our data into test and training data and make a model with all variables to see the VIFs we start with. 
+
+```{r}
+set.seed(36)
+trains<-createDataPartition(logtable$suicides,p=0.75,list=FALSE)
+logtable.train<-logtable[trains,]
+logtable.test<-logtable[-trains,]
+model_full<-lm((suicides)~.,data=logtable.train[,-1])
+summary(model_full)
+```
+
+This model, when tested on the test data, yields a correlation of about 81%.
+
+```{r}
+library(DAAG)
+test<-predict(model_full,logtable.test[,-1])
+toCompare<-data.frame(cbind(actuals=logtable.test[,-1]$suicides,predicts=test))
+cor(toCompare)
+```
+
+To determine which variables to remove, we choose variables with the highest VIFs to discount in the final analysis. From the initial model, we remove variables one at a time, testing to see how the predictions and VIFs of our model change.
+
+```{r}
+vif(model_full)
+```
+
+We decide to remove activity, entertainment, social recreation, and healthcare spending per person, female, white/blue collar, white(non-Hispanic), Asian, black, and white population, nonfamily households, median income, % Bachelor's/high school degrees, and healthcare spending per household from the explanatory variables.
+
+```{r}
+logtable<-logtable %>% select(-c(activities.per.person,entertainment.per.person,female,whiteNonHisp,healthcare.per.person,socialRec.per.person,white,nonfamily,healthcare.per.household,asian,Bachelors,medIncome,black,HS,bluecollar,whitecollar))
+# now the table has 174 cities, whereas the full list of gtrends had 200. Not a big loss
 write.csv(logtable,"logtable.csv")
+
 logtable_crop <- logtable [,-c(1)]
 row.names(logtable_crop)<-logtable$location
-
-# normalize the explanatory variables data frame
-logtable_crop_normalized <- scale(logtable_crop) %>% data.frame()
-row.names(logtable_crop_normalized)<-logtable$location
 
 # for purpose of identifying which cities to map 
 zip.no <- zipcode_dem2 %>% group_by(city) %>% summarise(zip.n=n())
 colnames(zip.no)[1]<-"location"
-gistable <- logtable %>% select(c(1,19,24)) %>% left_join(zip.no,by="location")
+#gistable <- logtable %>% select(c(1,19,24)) %>% left_join(zip.no,by="location")
+# We wanted to choose one city with high suicide rate, and one with a low suicide rate. The two cities should have a similar population, and should have a min of 4 zipcodes (so that plotting variables at the zipcode level will be more useful). We eventually decided on Inglewood and Santa Barbara.  
+
 ```
 
-We wanted to choose one city with high suicide rate, and one with a low suicide rate. The two cities should have a similar population, and should have a min of 4 zipcodes (so that plotting variables at the zipcode level will be more useful). We eventually decided on Inglewood and Santa Barbara.
+We rebuild our model using the remaining variables.
 
-
-Build a regression model to predict suicide rate at the city level
 ```{r}
-
-set.seed(47)
-model_full<-lm((suicides)~.,data=logtable_crop)
+logtable_crop.train<-logtable_crop[trains,]
+logtable_crop.test<-logtable_crop[-trains,]
+set.seed(35)
+model_full<-lm((suicides)~.,data=logtable_crop.train)
 summary(model_full)
 
 ```
 
 Significant variables include:
-Facility density (#mental health facilities/100,000 people) (+), % population native (+), median age (+), healthcare spending per person (big -), social/recreation/gym club spending (big -), prescription drug spending (big +), population density (+), unemployment rate (-), and movies/parks/museum spending (big +). 
+Facility density (#mental health facilities/100,000 people) (+), % population Native American(+), % population Hispanic (-), population density (+), median age (+), prescription drug spending per person (+), and % population in poverty (+). 
 
-We can get a better sense of the relationship between response variable suicide rate and a given significant variable by doing some exploratory plotting:
+We test our model on the same test data and get a 84.6% correlation rate, which is better than our original starting model. Not only is our prediction accuracy better in this case, but we're also more sure about which variables are significant and their coefficients.
+
 ```{r}
-# plot suicide rate and explanatory variable relationship
-library(ggrepel)
-library(caret)
+tests<-predict(model_full,logtable_crop.test)
+toCompare<-data.frame(cbind(actuals=logtable_crop.test$suicides,predicts=tests))
+cor(toCompare)
+(toCompare)
+
+``` 
+
+All VIFs for our explanatory variables are acceptable (< 5).
+
+```{r}
+vif(model_full)
+```
+
+This is supported by our correlation plot, which shows that our variables are a lot less correlated than in the original model.
+
+```{r}
+corrplot(cor(logtable_crop))
+```
+
+###Visualizing Explanatory Variables
+
+We can visualize explanatory variables two at a time, one on the x-axis and one as a color variable, plotted against log(suicides) on the y-axis. We're interested in the cities with higher suicide rates, so we sample cities from the cities with suicide rates higher than the 50th quantile. In this case, we've plotted the % Native American population on the x-axis and colored the points by facility density (if it's more than 70th quantile, we color it teal; otherwise, it's red).
+
+```{r}
+require(ggrepel)
 set.seed(35)
-part<-sample(rownames(logtable_crop[logtable_crop$suicides>0,]),20)
+part<-sample(rownames(logtable_crop[logtable_crop$suicides>quantile(logtable_crop$suicides,0.5),]),20)
 locs.toUse<-logtable_crop[part,]
-ggplot(locs.toUse,aes(x=socialRec.per.person,y=log(suicides)))+
-  geom_point(aes(color=facility_cnt>quantile(logtable_crop$facility_cnt,0.5)))+
-  geom_label_repel(aes(fill=facility_cnt>quantile(logtable_crop$facility_cnt,0.5),label=part),
-                   fontface = 'bold', color = 'black', box.padding = 0.5, point.padding = 1, segment.color = 'grey50')+
+ggplot(locs.toUse,aes(x=NativeAm,y=log(suicides)))+
+  geom_point(aes(color=facility_cnt>quantile(logtable_crop$facility_cnt,0.7)))+
+  geom_label_repel(aes(fill=facility_cnt>quantile(logtable_crop$facility_cnt,0.7),label=part),fontface = 'bold', color = 'black', box.padding = 0.6, point.padding = 1, segment.color = 'grey50')+
   theme_classic(base_size = 16)+
-  theme(legend.position = "none", plot.title = element_text(size=15,hjust = 0.5),
-        axis.text.x=element_text(size=5), axis.text.y = element_text(size=5), )+
-  labs(title = "Suicides, Social Rec $, & Facility Density", y = "Log (suicide rates)", x = "Social Rec 
-       Spending")
+  theme(legend.position = "none", plot.title = element_text(size=15,hjust = 0.5), axis.text.x = element_text(size=5),
+        axis.text.y = element_text(size=5), )+
+  labs(title = "Suicides, Native American Population, & Facility Density", y = "Log (suicide rates)", x = "% Native American")
 ```
 
 ## Mapping in ArcGIS
