@@ -6,7 +6,7 @@ output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE,warning=FALSE, tidy=TRUE)
+knitr::opts_chunk$set(echo = FALSE,warning=FALSE, tidy=TRUE)
 ```
 
 ## StoryMap
@@ -45,6 +45,7 @@ require(dplyr)
 require(zipcode)
 data("zipcode")
 require(ggmap)
+require(caret)
 ```
 
 ## Making Dataframes
@@ -120,7 +121,7 @@ colnames(landArea) <- c("location", "landArea")
 logtable <- inner_join(citydem,gtrends_full,by="location") %>% inner_join(city_suis,by="location") %>% inner_join(citydem2,by="location") %>% inner_join(landArea, by="location") %>% mutate(suicides=suicides*100000/pop,healthcare.per.person=healthcare.per.person/pop,activities.per.person=activities.per.person/pop,socialRec.per.person=socialRec.per.person/pop,entertainment.per.person=entertainment.per.person/pop,presdrugs.per.person=presdrugs.per.person/pop,healthcarebiz.per.1000=healthcarebiz.per.1000*1000/pop, pop_dens=landArea/pop)
 ```
 
-If we want to reliably determine significant variables, we want to ensure that variables aren't collinear. Looking at the correlation plot of variables in logtable, we see significant correlation between some variables.
+There are two different models we can use. If we want to reliably determine significant variables, we want to ensure that variables aren't collinear. Looking at the correlation plot of variables in logtable, we see significant correlation between some variables.
 
 ```{r fig1, fig.height = 8, fig.width = 8, fig.align = "center"}
 library(corrplot)
@@ -132,14 +133,19 @@ To determine which variables to remove, we look at the VIF and choose variables 
 ```{r}
 library(DAAG)
 set.seed(35)
-model_full<-lm((suicides)~.,data=logtable[,-1])
-test<-predict(model_full,logtable[,-1])
-toCompare<-data.frame(cbind(actuals=logtable_crop.test$suicides,predicts=tests))
+trains<-createDataPartition(logtable$suicides,p=0.75,list=FALSE)
+logtable.train<-logtable[trains,]
+logtable.test<-logtable[-trains,]
+model_full<-lm((suicides)~.,data=logtable.train[,-1])
+summary(model_full)
+test<-predict(model_full,logtable.test[,-1])
+toCompare<-data.frame(cbind(actuals=logtable.test[,-1]$suicides,predicts=test))
 cor(toCompare)
 vif(model_full)
 ```
 
-We decide to remove activity, entertainment, social recreation, and healthcare spending per person, female, white(non-Hispanic), and white population, nonfamily households, and healthcare spending per household from the explanatory variables.
+We decide to remove activity, entertainment, social recreation, and healthcare spending per person, female, white/blue collar, white(non-Hispanic), Asian, black, and white population, nonfamily households, median income, % Bachelor's/high school degrees, and healthcare spending per household from the explanatory variables.
+
 ```{r}
 logtable<-logtable %>% select(-c(activities.per.person,entertainment.per.person,female,whiteNonHisp,healthcare.per.person,socialRec.per.person,white,nonfamily,healthcare.per.household,asian,Bachelors,medIncome,black,HS,bluecollar,whitecollar))
 # now the table has 174 cities, whereas the full list of gtrends had 200. Not a big loss
@@ -161,8 +167,9 @@ colnames(zip.no)[1]<-"location"
 ```
 
 We partition the data into a training and test set, then build our model.
+
 ```{r}
-library(caret)
+
 trains<-createDataPartition(logtable_crop$suicides,p=0.75,list=FALSE)
 logtable_crop.train<-logtable_crop[trains,]
 logtable_crop.test<-logtable_crop[-trains,]
@@ -173,19 +180,19 @@ summary(model_full)
 ```
 
 Significant variables include:
-Facility density (#mental health facilities/100,000 people) (+), % population Native American(+), unemployment rate (-), % population Hispanic (-), and population density (+).  Borderline significant variables are median age (+) and % population in poverty (+).
+Facility density (#mental health facilities/100,000 people) (+), % population Native American(+), % population Hispanic (-), population density (+), median age (+), prescription drug spending per person (+), and % population in poverty (+). A borderline significant variable is density of healthcare businesses per 1000 people (-).
 
-We test our model on the test data and get a 83.1% correlation rate.
+We test our model on the test data and get a 87% correlation rate, which is the better than our original model (which had an 81% correlaton rate).
 
 ```{r}
 tests<-predict(model_full,logtable_crop.test)
 toCompare<-data.frame(cbind(actuals=logtable_crop.test$suicides,predicts=tests))
 cor(toCompare)
-head(toCompare)
+(toCompare)
 
 ```
 
-Looking at the VIFs for the explanatory variables, we can see that 
+All VIFs for our explanatory variables are acceptable (< 5).
 ```{r}
 vif(model_full)
 corrplot(cor(logtable_crop))
