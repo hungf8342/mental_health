@@ -118,9 +118,9 @@ logtable <- inner_join(citydem,gtrends_full,by="location") %>% inner_join(city_s
 
 ###Satisfying Conditions for Linear Regression 
 
-We use linear regression to find a linear relationship between explanatory variables and our scalar response variable (cumulative suicide rate per 100,000 people). Before we settle on a final model, there are some conditions on our data we have to ensure.
+We use linear regression to find a linear relationship between explanatory variables and our scalar response variable (cumulative suicide rate per 100,000 people). Before we settle on a final model, there are some conditions on our data we have to ensure. Most conditions, like mean of residuals is 0 and homoscedasticity (equal variance) and normality of residuals are easy to check (for example, we can plot our linear models in R to get Q-Q plots). One of these conditions, however( no multicollinearity), must be checked and corrected for more vigorously.
 
-If we want to reliably determine significant variables, we want to ensure that variables aren't collinear. Looking at the correlation plot of variables in our data, we see significant correlation between some variables.
+If we want to reliably determine significant variables, we want to ensure that explanatory variables aren't collinear (or significantly correlated). Looking at the correlation plot of variables in our data, we see significant correlation between some variables.
 
 ```{r fig1, fig.height = 8, fig.width = 8, fig.align = "center"}
 library(corrplot)
@@ -183,7 +183,7 @@ summary(model_full)
 ```
 
 Significant variables include:
-Facility density (#mental health facilities/100,000 people) (+), % population Native American(+), % population Hispanic (-), population density (+), median age (+), prescription drug spending per person (+), and % population in poverty (+). 
+Facility density (#mental health facilities/100,000 people) (+), % population Native American(+), % population Hispanic (-), population density (+), median age (+), prescription drug spending per person (+), unemployment rate (-), and % population in poverty (+). 
 
 We test our model on the same test data and get a 84.6% correlation rate, which is better than our original starting model. Not only is our prediction accuracy better in this case, but we're also more sure about which variables are significant and what their coefficients are.
 
@@ -209,7 +209,7 @@ corrplot(cor(logtable_crop))
 
 ###Visualizing Explanatory Variables
 
-We can visualize explanatory variables two at a time, one on the x-axis and one as a color variable, plotted against log(suicides) on the y-axis. We're interested in the cities with higher suicide rates, so we sample cities from the cities with suicide rates higher than the 50th quantile. In this case, we've plotted the % Native American population on the x-axis and colored the points by facility density (if it's more than 70th quantile, we color it teal; otherwise, it's red).
+We can visualize explanatory variables two at a time, one on the x-axis and one as a color variable, plotted against log(suicides) on the y-axis. We're interested in the cities with higher suicide rates, so we sample cities from the cities with suicide rates higher than the 50th percentile. In this case, we've plotted the % Native American population on the x-axis and colored the points by facility density (if it's more than 70th percentile, we color it teal; otherwise, it's red).
 
 To explore variable comparisons interactively, check out this Shiny app! https://frances-hung.shinyapps.io/ma154-project5-teammentalhealth/
 
