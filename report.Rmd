@@ -118,6 +118,8 @@ logtable <- inner_join(citydem,gtrends_full,by="location") %>% inner_join(city_s
 
 ###Satisfying Conditions for Linear Regression 
 
+We use linear regression to find a linear relationship between explanatory variables and our scalar response variable (cumulative suicide rate per 100,000 people). Before we settle on a final model, there are some conditions on our data we have to ensure.
+
 If we want to reliably determine significant variables, we want to ensure that variables aren't collinear. Looking at the correlation plot of variables in our data, we see significant correlation between some variables.
 
 ```{r fig1, fig.height = 8, fig.width = 8, fig.align = "center"}
@@ -136,7 +138,7 @@ model_full<-lm((suicides)~.,data=logtable.train[,-1])
 summary(model_full)
 ```
 
-This model, when tested on the test data, yields a correlation of about 81%.
+This model, when tested on the test data, yields a correlation rate of about 81%.
 
 ```{r}
 library(DAAG)
@@ -183,7 +185,7 @@ summary(model_full)
 Significant variables include:
 Facility density (#mental health facilities/100,000 people) (+), % population Native American(+), % population Hispanic (-), population density (+), median age (+), prescription drug spending per person (+), and % population in poverty (+). 
 
-We test our model on the same test data and get a 84.6% correlation rate, which is better than our original starting model. Not only is our prediction accuracy better in this case, but we're also more sure about which variables are significant and their coefficients.
+We test our model on the same test data and get a 84.6% correlation rate, which is better than our original starting model. Not only is our prediction accuracy better in this case, but we're also more sure about which variables are significant and what their coefficients are.
 
 ```{r}
 tests<-predict(model_full,logtable_crop.test)
@@ -208,6 +210,8 @@ corrplot(cor(logtable_crop))
 ###Visualizing Explanatory Variables
 
 We can visualize explanatory variables two at a time, one on the x-axis and one as a color variable, plotted against log(suicides) on the y-axis. We're interested in the cities with higher suicide rates, so we sample cities from the cities with suicide rates higher than the 50th quantile. In this case, we've plotted the % Native American population on the x-axis and colored the points by facility density (if it's more than 70th quantile, we color it teal; otherwise, it's red).
+
+To explore variable comparisons interactively, check out this Shiny app! https://frances-hung.shinyapps.io/ma154-project5-teammentalhealth/
 
 ```{r}
 require(ggrepel)
